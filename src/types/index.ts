@@ -4,6 +4,7 @@ export interface UserSession {
   role: 'owner' | 'customer';
   ownerName?: string;
   customer?: Customer;
+  activeBranchId?: string; // e.g. "pharm-koramangala" or undefined for all
 }
 
 export type MedicineCategory = 
@@ -134,6 +135,38 @@ export interface PharmacyProfile {
   fssaiNo?: string;
 }
 
+export interface PharmacyBranch {
+  id: string;              // e.g. "pharm-koramangala"
+  name: string;            // e.g. "medEco Pharmacy - Koramangala 5th Block"
+  code: string;            // e.g. "ECO-KOR-01"
+  area: string;            // e.g. "Koramangala"
+  address: string;         // e.g. "80 Feet Road, 5th Block"
+  doorNumber: string;      // e.g. "Shop #14, Ground Floor"
+  pincode: string;         // e.g. "560034"
+  phone: string;           // e.g. "+91 98765 43210"
+  email: string;
+  managerName: string;     // e.g. "Dr. Ramesh Gupta (B.Pharm)"
+  managerPhone: string;
+  managerPin?: string;     // PIN to manage this specific store
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  deliveryRadiusKm: number;// e.g. 7.5 km
+  estimatedDeliveryTime: string; // e.g. "25-35 mins"
+  isOpen24x7: boolean;
+  rating: number;          // e.g. 4.8
+  isActive: boolean;
+}
+
+export interface BranchStockItem {
+  branchId: string;
+  medicineId: string;
+  stock: number;
+  minStockAlert: number;
+  lastUpdated?: string;
+}
+
 export interface OnlineOrderItem {
   medicineId: string;
   medicineName: string;
@@ -144,15 +177,28 @@ export interface OnlineOrderItem {
   rackInfo: string;
 }
 
-export type OrderStatus = 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'REJECTED';
+// Standard Online Pharmacy Order Status (Apollo 24|7 & Tata 1mg SOP)
+export type OrderStatus = 
+  | 'PENDING'          // Placed by customer, awaiting pharmacist review
+  | 'VERIFIED'         // Pharmacist verified prescription & stock
+  | 'PACKED'           // Medicines packed from rack/box & invoice generated
+  | 'OUT_FOR_DELIVERY' // Dispatched with delivery agent
+  | 'DELIVERED'        // Handed over to patient
+  | 'CANCELLED'        // Order cancelled / invalid prescription
+  | 'ACCEPTED'         // Legacy alias for VERIFIED
+  | 'PREPARING'        // Legacy alias for PACKED
+  | 'READY'            // Legacy alias for PACKED
+  | 'REJECTED';        // Legacy alias for CANCELLED
 
 export interface OnlineOrder {
   id: string;
-  orderNumber: string; // e.g. "ORD-2026-101"
+  orderNumber: string;       // e.g. "ORD-2026-101"
+  pharmacyId: string;        // Specific pharmacy branch fulfilling this order
+  pharmacyName: string;      // Name of the selected pharmacy store
   customerName: string;
   customerMobile: string;
   address: string;
-  doorNumber?: string; // Door / Flat / House number
+  doorNumber?: string;       // Door / Flat / House number
   landmark?: string;
   pincode?: string;
   geoCoordinates?: {
@@ -166,6 +212,11 @@ export interface OnlineOrder {
   estimatedTotal: number;
   status: OrderStatus;
   createdAt: string;
+  verifiedAt?: string;       // SOP verification timestamp
+  packedAt?: string;         // SOP packing timestamp
+  dispatchedAt?: string;     // SOP dispatch timestamp
+  deliveredAt?: string;      // SOP delivery timestamp
   notes?: string;
 }
+
 
