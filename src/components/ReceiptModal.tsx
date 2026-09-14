@@ -1,14 +1,14 @@
 import React from 'react';
-import { 
-  X, 
-  Printer, 
-  Share2, 
-  CheckCircle2, 
-  Pill, 
-  Download, 
-  MapPin, 
-  Calendar, 
-  Phone, 
+import {
+  X,
+  Printer,
+  Share2,
+  CheckCircle2,
+  Pill,
+  Download,
+  MapPin,
+  Calendar,
+  Phone,
   Sparkles,
   Clock
 } from 'lucide-react';
@@ -301,3 +301,4 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     </div>
   );
 };
+//donw
