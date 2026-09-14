@@ -17,6 +17,7 @@ interface GoogleMapViewerProps {
   pincode?: string;
   height?: string;
   showNavigationLink?: boolean;
+  title?: string;
 }
 
 export const GoogleMapViewer: React.FC<GoogleMapViewerProps> = ({
@@ -27,7 +28,8 @@ export const GoogleMapViewer: React.FC<GoogleMapViewerProps> = ({
   landmark,
   pincode,
   height = '240px',
-  showNavigationLink = true
+  showNavigationLink = true,
+  title = 'Delivery Pinpoint'
 }) => {
   // Free, high-reliability Google Maps embed with pinpoint query marker
   const embedUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&hl=en&z=16&output=embed`;
@@ -43,7 +45,7 @@ export const GoogleMapViewer: React.FC<GoogleMapViewerProps> = ({
             <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <span className="font-extrabold text-slate-900 dark:text-white text-[11px] uppercase tracking-wider">
-            Pointed Location on Google Maps
+            {title}
           </span>
           <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded font-bold">
             {latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E

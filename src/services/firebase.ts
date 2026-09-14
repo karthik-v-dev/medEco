@@ -1,21 +1,33 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getDatabase, ref, set, get, update, remove, onValue, Database } from 'firebase/database';
-import { Medicine, Customer, Invoice, MedicineReminder, PharmacyProfile, UserSession, OnlineOrder, OrderStatus } from '../types';
+import { 
+  Medicine, 
+  Customer, 
+  Invoice, 
+  MedicineReminder, 
+  PharmacyProfile, 
+  UserSession, 
+  OnlineOrder, 
+  OrderStatus,
+  PharmacyBranch,
+  BranchStockItem
+} from '../types';
 import {
   DEFAULT_PHARMACY_PROFILE,
   INITIAL_MEDICINES,
   INITIAL_CUSTOMERS,
   INITIAL_INVOICES,
   INITIAL_REMINDERS,
-  INITIAL_ONLINE_ORDERS
+  INITIAL_ONLINE_ORDERS,
+  INITIAL_BRANCHES,
+  INITIAL_BRANCH_STOCKS
 } from './mockData';
 
 // User specified Firebase Realtime Database URL
 export const FIREBASE_DB_URL = "https://mediaclinfo-default-rtdb.firebaseio.com/";
 
+// Firebase web configuration with RTDB endpoint
 const firebaseConfig = {
-  apiKey: "AIzaSyDummyKeyForRTDBAccessOnly12345678",
-  authDomain: "mediaclinfo-default-rtdb.firebaseapp.com",
   databaseURL: FIREBASE_DB_URL,
   projectId: "mediaclinfo",
   storageBucket: "mediaclinfo.appspot.com",
@@ -40,7 +52,10 @@ const STORAGE_KEYS = {
   REMINDERS: 'medeco_reminders_v1',
   PROFILE: 'medeco_profile_v1',
   ACTIVE_CUSTOMER: 'medeco_active_customer_phone',
-  ONLINE_ORDERS: 'medeco_online_orders_v1'
+  ONLINE_ORDERS: 'medeco_online_orders_v1',
+  BRANCHES: 'medeco_branches_v1',
+  BRANCH_STOCKS: 'medeco_branch_stocks_v1',
+  ACTIVE_BRANCH: 'medeco_active_branch_id'
 };
 
 // State listeners
@@ -99,6 +114,12 @@ export const initializeDataLayer = async () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.ONLINE_ORDERS)) {
     setLocal(STORAGE_KEYS.ONLINE_ORDERS, INITIAL_ONLINE_ORDERS);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.BRANCHES)) {
+    setLocal(STORAGE_KEYS.BRANCHES, INITIAL_BRANCHES);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.BRANCH_STOCKS)) {
+    setLocal(STORAGE_KEYS.BRANCH_STOCKS, INITIAL_BRANCH_STOCKS);
   }
 
   // Attempt initial sync with Firebase Realtime Database
@@ -464,9 +485,123 @@ export const savePharmacyProfile = (profile: PharmacyProfile) => {
   setLocal(STORAGE_KEYS.PROFILE, profile);
 };
 
-// ==================== ONLINE ORDERS & PRESCRIPTIONS ====================
+// ==================== MULTI-STORE PHARMACY BRANCHES ====================
+export const getPharmacyBranches = (): PharmacyBranch[] => {
+  return getLocal<PharmacyBranch[]>(STORAGE_KEYS.BRANCHES, INITIAL_BRANCHES);
+};
+
+export const getBranchById = (branchId: string): PharmacyBranch | undefined => {
+  const branches = getPharmacyBranches();
+  return branches.find(b => b.id === branchId);
+};
+
+export const savePharmacyBranch = async (branch: PharmacyBranch): Promise<void> => {
+  const current = getPharmacyBranches();
+  const idx = current.findIndex(b => b.id === branch.id);
+  let updated: PharmacyBranch[];
+  if (idx >= 0) {
+    updated = [...current];
+    updated[idx] = branch;
+  } else {
+    updated = [...current, branch];
+  }
+  setLocal(STORAGE_KEYS.BRANCHES, updated);
+
+  if (database) {
+    try {
+      const branchRef = ref(database, `branches/${branch.id}`);
+      await set(branchRef, branch);
+    } catch (e) {
+      console.warn("RTDB branch save note:", e);
+    }
+  }
+};
+
+export const getActiveBranchId = (): string => {
+  const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_BRANCH);
+  return saved || 'pharm-koramangala';
+};
+
+export const setActiveBranchId = (branchId: string): void => {
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_BRANCH, branchId);
+  notifyListeners();
+};
+
+// ==================== BRANCH STOCK INVENTORY ====================
+export const getBranchStocks = (branchId?: string): BranchStockItem[] => {
+  const all = getLocal<BranchStockItem[]>(STORAGE_KEYS.BRANCH_STOCKS, INITIAL_BRANCH_STOCKS);
+  if (branchId && branchId !== 'ALL') {
+    return all.filter(s => s.branchId === branchId);
+  }
+  return all;
+};
+
+export const updateBranchStock = async (branchId: string, medicineId: string, newStock: number): Promise<void> => {
+  const all = getLocal<BranchStockItem[]>(STORAGE_KEYS.BRANCH_STOCKS, INITIAL_BRANCH_STOCKS);
+  const idx = all.findIndex(s => s.branchId === branchId && s.medicineId === medicineId);
+  let updated: BranchStockItem[];
+  if (idx >= 0) {
+    updated = [...all];
+    updated[idx] = { ...updated[idx], stock: Math.max(0, newStock), lastUpdated: new Date().toISOString() };
+  } else {
+    updated = [...all, { branchId, medicineId, stock: Math.max(0, newStock), minStockAlert: 10, lastUpdated: new Date().toISOString() }];
+  }
+  setLocal(STORAGE_KEYS.BRANCH_STOCKS, updated);
+
+  if (database) {
+    try {
+      const stockRef = ref(database, `branch_stocks/${branchId}_${medicineId}`);
+      await set(stockRef, { branchId, medicineId, stock: newStock });
+    } catch (e) {
+      // ignore
+    }
+  }
+};
+
+// Haversine formula to compute great-circle distance in kilometers
+export const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  return Math.round(d * 10) / 10; // 1 decimal place
+};
+
+export interface NearestBranch extends PharmacyBranch {
+  distanceKm: number;
+}
+
+export const getNearestBranches = (userLat: number, userLng: number): NearestBranch[] => {
+  const branches = getPharmacyBranches().filter(b => b.isActive);
+  const withDist = branches.map(b => ({
+    ...b,
+    distanceKm: calculateDistanceKm(userLat, userLng, b.coordinates.latitude, b.coordinates.longitude)
+  }));
+  return withDist.sort((a, b) => a.distanceKm - b.distanceKm);
+};
+
+// ==================== ONLINE ORDERS & PRESCRIPTIONS (BRANCH ROUTED) ====================
 export const getOnlineOrders = (): OnlineOrder[] => {
   return getLocal<OnlineOrder[]>(STORAGE_KEYS.ONLINE_ORDERS, INITIAL_ONLINE_ORDERS);
+};
+
+export const getOrdersForBranch = (branchId?: string): OnlineOrder[] => {
+  const orders = getOnlineOrders();
+  if (!branchId || branchId === 'ALL') {
+    return orders;
+  }
+  return orders.filter(o => o.pharmacyId === branchId);
+};
+
+export const getCustomerOnlineOrders = (customerMobile: string): OnlineOrder[] => {
+  const clean = customerMobile.replace(/\D/g, '');
+  const orders = getOnlineOrders();
+  return orders.filter(o => o.customerMobile.replace(/\D/g, '') === clean);
 };
 
 export const saveOnlineOrder = async (order: OnlineOrder): Promise<void> => {
@@ -488,22 +623,42 @@ export const saveOnlineOrder = async (order: OnlineOrder): Promise<void> => {
   playNotificationChime();
 
   // Dispatch custom browser event for live order popup notification
+  // detail includes order and the assigned pharmacyId so only the relevant store gets alerted
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('medeco:new-online-order', { detail: order }));
+    window.dispatchEvent(new CustomEvent('medeco:new-online-order', { 
+      detail: { ...order, assignedPharmacyId: order.pharmacyId } 
+    }));
   }
 };
 
-export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<void> => {
+// Standard Online Pharmacy Order Status Advancement (Apollo / 1mg SOP)
+export const advanceOrderStatus = async (
+  orderId: string, 
+  nextStatus: OrderStatus, 
+  note?: string
+): Promise<void> => {
   const current = getOnlineOrders();
   const index = current.findIndex(o => o.id === orderId);
   if (index >= 0) {
-    current[index] = { ...current[index], status };
+    const order = current[index];
+    const now = new Date().toISOString();
+    const updatedOrder: OnlineOrder = {
+      ...order,
+      status: nextStatus,
+      notes: note ? (order.notes ? `${order.notes} | ${note}` : note) : order.notes,
+      verifiedAt: nextStatus === 'VERIFIED' ? now : order.verifiedAt,
+      packedAt: nextStatus === 'PACKED' ? now : order.packedAt,
+      dispatchedAt: nextStatus === 'OUT_FOR_DELIVERY' ? now : order.dispatchedAt,
+      deliveredAt: nextStatus === 'DELIVERED' ? now : order.deliveredAt,
+    };
+
+    current[index] = updatedOrder;
     setLocal(STORAGE_KEYS.ONLINE_ORDERS, [...current]);
 
     if (database) {
       try {
-        const statusRef = ref(database, `online_orders/${orderId}/status`);
-        await set(statusRef, status);
+        const orderRef = ref(database, `online_orders/${orderId}`);
+        await set(orderRef, updatedOrder);
       } catch (e) {
         // ignore
       }
@@ -511,8 +666,13 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
   }
 };
 
-export const getPendingOnlineOrders = (): OnlineOrder[] => {
-  return getOnlineOrders().filter(o => o.status === 'PENDING');
+export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<void> => {
+  await advanceOrderStatus(orderId, status);
+};
+
+export const getPendingOnlineOrders = (branchId?: string): OnlineOrder[] => {
+  const orders = getOrdersForBranch(branchId);
+  return orders.filter(o => o.status === 'PENDING');
 };
 
 // Notification Sound using Web Audio API
@@ -541,4 +701,5 @@ export const playNotificationChime = () => {
     // browser audio policy might block autoplay until user gesture
   }
 };
+
 

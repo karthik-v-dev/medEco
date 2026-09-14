@@ -16,9 +16,18 @@ import {
   LogIn,
   Camera,
   Bell,
-  BookOpen
+  BookOpen,
+  Building2
 } from 'lucide-react';
-import { Medicine, CartItem, Customer, Invoice, UserSession, OnlineOrder } from './types';
+import { 
+  Medicine, 
+  CartItem, 
+  Customer, 
+  Invoice, 
+  UserSession, 
+  OnlineOrder, 
+  PharmacyBranch 
+} from './types';
 import { 
   initializeDataLayer, 
   getMedicines, 
@@ -29,7 +38,10 @@ import {
   getCustomerInvoices,
   getCustomerReminders,
   getOnlineOrders,
-  getPendingOnlineOrders
+  getPendingOnlineOrders,
+  getPharmacyBranches,
+  getActiveBranchId,
+  setActiveBranchId
 } from './services/firebase';
 import { useTheme } from './services/theme';
 
@@ -46,6 +58,8 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { OnlineOrderModal } from './components/OnlineOrderModal';
 import { OrderNotificationPopup } from './components/OrderNotificationPopup';
 import { UserManualModal } from './components/UserManualModal';
+import { MultiStoreDashboard } from './components/MultiStoreDashboard';
+import { CustomerPortal } from './components/CustomerPortal';
 
 export const App: React.FC = () => {
   const { theme, setTheme } = useTheme();
@@ -56,6 +70,8 @@ export const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [session, setSession] = useState<UserSession | null>(null);
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
+  const [branches, setBranches] = useState<PharmacyBranch[]>([]);
+  const [activeBranchId, setActiveBranchIdState] = useState<string>('pharm-koramangala');
 
   // Modals State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -76,6 +92,8 @@ export const App: React.FC = () => {
       setInvoices(getInvoices());
       setSession(getActiveSession());
       setOnlineOrders(getOnlineOrders());
+      setBranches(getPharmacyBranches());
+      setActiveBranchIdState(getActiveBranchId());
     });
 
     const unsubscribe = subscribeToDataChanges(() => {
@@ -83,15 +101,23 @@ export const App: React.FC = () => {
       setInvoices(getInvoices());
       setSession(getActiveSession());
       setOnlineOrders(getOnlineOrders());
+      setBranches(getPharmacyBranches());
+      setActiveBranchIdState(getActiveBranchId());
     });
 
     // Listen for realtime incoming online order events
     const handleNewOrder = (e: Event) => {
-      const customEvent = e as CustomEvent<OnlineOrder>;
+      const customEvent = e as CustomEvent<OnlineOrder & { assignedPharmacyId?: string }>;
       const order = customEvent.detail;
-      setSelectedNotificationOrder(order);
-      setIsOrderNotificationOpen(true);
-      confetti({ particleCount: 60, spread: 55, origin: { y: 0.3 } });
+      
+      // Store Routing Check:
+      // An owner will receive notifications if they have selected "ALL" or if the order was assigned to their store
+      const curBranch = localStorage.getItem('medeco_active_branch_id') || 'pharm-koramangala';
+      if (curBranch === 'ALL' || !order.pharmacyId || order.pharmacyId === curBranch) {
+        setSelectedNotificationOrder(order);
+        setIsOrderNotificationOpen(true);
+        confetti({ particleCount: 60, spread: 55, origin: { y: 0.3 } });
+      }
     };
 
     window.addEventListener('medeco:new-online-order', handleNewOrder);
@@ -111,6 +137,11 @@ export const App: React.FC = () => {
     setActiveSession(null);
     setSession(null);
     setCurrentTab('finder');
+  };
+
+  const handleBranchSwitch = (branchId: string) => {
+    setActiveBranchIdState(branchId);
+    setActiveBranchId(branchId);
   };
 
   const handleAddToCart = (medicine: Medicine, quantity: number = 1) => {
@@ -198,15 +229,14 @@ export const App: React.FC = () => {
   const isCustomer = session?.role === 'customer';
   const activeCustomer = session?.customer || null;
 
-  const pendingOrders = onlineOrders.filter(o => o.status === 'PENDING');
-
-  // Customer isolated data: ONLY their own invoices and reminders!
-  const myInvoices = activeCustomer ? getCustomerInvoices(activeCustomer.mobileNumber) : [];
-  const myReminders = activeCustomer ? getCustomerReminders(activeCustomer.mobileNumber) : [];
+  // Pending orders filtered by active store context
+  const storePendingOrders = onlineOrders.filter(o => 
+    o.status === 'PENDING' && (activeBranchId === 'ALL' || o.pharmacyId === activeBranchId)
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-colors duration-200">
-      {/* App Navbar with role based controls & Theme Toggle */}
+      {/* App Navbar with responsive wrap, branch selector, and Theme Toggle */}
       <Navbar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
@@ -218,10 +248,10 @@ export const App: React.FC = () => {
         theme={theme}
         setTheme={setTheme}
         onOpenOnlineOrder={() => setIsOnlineOrderModalOpen(true)}
-        pendingOrdersCount={pendingOrders.length}
+        pendingOrdersCount={storePendingOrders.length}
         onOpenPendingOrders={() => {
-          if (pendingOrders.length > 0) {
-            setSelectedNotificationOrder(pendingOrders[0]);
+          if (storePendingOrders.length > 0) {
+            setSelectedNotificationOrder(storePendingOrders[0]);
             setIsOrderNotificationOpen(true);
           } else if (onlineOrders.length > 0) {
             setSelectedNotificationOrder(onlineOrders[0]);
@@ -229,10 +259,13 @@ export const App: React.FC = () => {
           }
         }}
         onOpenManual={() => setIsManualModalOpen(true)}
+        activeBranchId={activeBranchId}
+        onSelectBranch={handleBranchSwitch}
+        branches={branches}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6 pb-24 md:pb-12">
         {/* 1. Everyone: "Where is Tablet?" Quick Locator */}
         {currentTab === 'finder' && (
           <MedicineFinder
@@ -252,7 +285,36 @@ export const App: React.FC = () => {
           />
         )}
 
-        {/* 3. OWNER ONLY: POS Billing */}
+        {/* 3. OWNER ONLY: Multi-Store Franchise & Booking Dashboard */}
+        {currentTab === 'stores_dash' && (
+          isOwner ? (
+            <MultiStoreDashboard
+              medicines={medicines}
+              activeBranchId={activeBranchId}
+              onSelectBranch={handleBranchSwitch}
+              onOpenOrderDetails={(order) => {
+                setSelectedNotificationOrder(order);
+                setIsOrderNotificationOpen(true);
+              }}
+            />
+          ) : (
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 text-center max-w-md mx-auto space-y-3">
+              <Lock className="w-12 h-12 text-slate-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Owner Access Required</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Only authenticated pharmacy owners can view the consolidated Multi-Store Dashboard and manage branch bookings.
+              </p>
+              <button
+                onClick={() => handleOpenAuth('owner')}
+                className="w-full py-2.5 bg-slate-900 dark:bg-emerald-600 text-white rounded-xl text-xs font-bold"
+              >
+                Sign in as Owner
+              </button>
+            </div>
+          )
+        )}
+
+        {/* 4. OWNER ONLY: POS Billing */}
         {currentTab === 'pos' && (
           isOwner ? (
             <BillingPOS
@@ -265,7 +327,7 @@ export const App: React.FC = () => {
           ) : (
             <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 text-center max-w-md mx-auto space-y-3">
               <Lock className="w-12 h-12 text-slate-400 mx-auto" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Owner / Staff Authentication Required</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Owner Authentication Required</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Please log in as the Pharmacy Owner to access the Point of Sale billing terminal.
               </p>
@@ -279,7 +341,7 @@ export const App: React.FC = () => {
           )
         )}
 
-        {/* 4. OWNER ONLY: Inventory & Costs Management */}
+        {/* 5. OWNER ONLY: Inventory & Costs Management */}
         {currentTab === 'inventory' && (
           isOwner ? (
             <InventoryManager
@@ -303,7 +365,7 @@ export const App: React.FC = () => {
           )
         )}
 
-        {/* 5. OWNER ONLY: Check Customer Info & History */}
+        {/* 6. OWNER ONLY: Check Customer Info & History */}
         {currentTab === 'customers_dir' && (
           isOwner ? (
             <CustomerDirectory
@@ -326,7 +388,7 @@ export const App: React.FC = () => {
           )
         )}
 
-        {/* 6. OWNER ONLY: All Sales Receipts */}
+        {/* 7. OWNER ONLY: All Sales Receipts */}
         {currentTab === 'invoices' && (
           isOwner ? (
             <InvoiceHistory
@@ -350,105 +412,18 @@ export const App: React.FC = () => {
           )
         )}
 
-        {/* 7. CUSTOMER EXCLUSIVE: "My Orders & History" (Strict Privacy) */}
+        {/* 8. CUSTOMER EXCLUSIVE: "My Orders & History" with Live Booking Tracker */}
         {currentTab === 'customer_history' && (
-          isCustomer && activeCustomer ? (
-            <div className="space-y-4">
-              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">My Medicine Purchase History</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Orders linked to <span className="font-mono font-bold text-slate-700 dark:text-slate-300">+91 {activeCustomer.mobileNumber}</span> ({activeCustomer.name})
-                  </p>
-                </div>
-                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-3 py-1 rounded-xl">
-                  {myInvoices.length} Orders
-                </span>
-              </div>
-
-              {myInvoices.length === 0 ? (
-                <div className="bg-white dark:bg-slate-900 p-12 rounded-2xl border border-slate-200 dark:border-slate-800 text-center">
-                  <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No past orders found</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    When medicines are billed to your phone number (+91 {activeCustomer.mobileNumber}), your official receipts will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {myInvoices.map(inv => (
-                    <div
-                      key={inv.id}
-                      className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs hover:border-emerald-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-xs text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                            {inv.invoiceNumber}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {new Date(inv.date).toLocaleDateString('en-IN', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1.5">
-                          {inv.items.map((item, idx) => (
-                            <span 
-                              key={idx}
-                              className="text-[11px] bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded font-medium"
-                            >
-                              {item.medicineName} x{item.quantity}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-2 md:pt-0">
-                        <div className="text-left md:text-right">
-                          <span className="text-base font-black text-slate-900 dark:text-white block">
-                            ₹{inv.grandTotal.toFixed(2)}
-                          </span>
-                          <span className="text-[10px] text-emerald-600 font-bold">
-                            {inv.paymentMode} • {inv.status}
-                          </span>
-                        </div>
-
-                        <button
-                          onClick={() => setActiveReceipt(inv)}
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
-                        >
-                          View Receipt
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 text-center max-w-md mx-auto space-y-3">
-              <User className="w-12 h-12 text-slate-400 mx-auto" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Customer Login Required</h3>
-              <p className="text-xs text-slate-500">
-                Log in with your mobile number to view your private purchase history and prescriptions.
-              </p>
-              <button
-                onClick={() => handleOpenAuth('customer')}
-                className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold"
-              >
-                Login with Phone
-              </button>
-            </div>
-          )
+          <CustomerPortal
+            customer={activeCustomer}
+            onOpenAuth={() => handleOpenAuth('customer')}
+            onViewInvoice={(inv) => setActiveReceipt(inv)}
+            onGoToShop={() => setCurrentTab('finder')}
+            onOpenOnlineOrder={() => setIsOnlineOrderModalOpen(true)}
+          />
         )}
 
-        {/* 8. CUSTOMER EXCLUSIVE: "My Dose Reminders" */}
+        {/* 9. CUSTOMER EXCLUSIVE: "My Dose Reminders" */}
         {currentTab === 'customer_reminders' && (
           isCustomer && activeCustomer ? (
             <div className="space-y-4">
@@ -463,7 +438,7 @@ export const App: React.FC = () => {
 
               <ReminderManager
                 customerMobile={activeCustomer.mobileNumber}
-                reminders={myReminders}
+                reminders={getCustomerReminders(activeCustomer.mobileNumber)}
               />
             </div>
           ) : (
@@ -484,7 +459,7 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Mobile Sticky Bottom Navigation Bar */}
+      {/* Mobile Sticky Bottom Navigation Bar (Clean & Responsive) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around no-print shadow-lg">
         <button
           onClick={() => setCurrentTab('finder')}
@@ -506,6 +481,16 @@ export const App: React.FC = () => {
 
         {isOwner && (
           <>
+            <button
+              onClick={() => setCurrentTab('stores_dash')}
+              className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
+                currentTab === 'stores_dash' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span className="text-[10px] mt-0.5">Stores</span>
+            </button>
+
             <button
               onClick={() => setCurrentTab('pos')}
               className={`flex flex-col items-center py-1 px-2 rounded-xl relative transition-all ${
@@ -542,7 +527,7 @@ export const App: React.FC = () => {
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span className="text-[10px] mt-0.5">Orders</span>
+              <span className="text-[10px] mt-0.5">Track</span>
             </button>
 
             <button
@@ -568,18 +553,19 @@ export const App: React.FC = () => {
         )}
       </nav>
 
-      {/* Customer Online Order & Prescription Upload Modal */}
+      {/* Customer Online Order & Prescription Upload Modal (With Nearest Branch & Login gate) */}
       <OnlineOrderModal
         isOpen={isOnlineOrderModalOpen}
         onClose={() => setIsOnlineOrderModalOpen(false)}
         session={session}
+        onRequireLogin={() => handleOpenAuth('customer')}
         onOrderSubmitted={(order) => {
           setSelectedNotificationOrder(order);
           setIsOrderNotificationOpen(true);
         }}
       />
 
-      {/* Realtime Order Notification Popup (Alerts owner & customer) */}
+      {/* Realtime Order Notification Popup (Filtered to assigned pharmacy branch) */}
       <OrderNotificationPopup
         order={selectedNotificationOrder}
         isOpen={isOrderNotificationOpen}
@@ -601,7 +587,7 @@ export const App: React.FC = () => {
         onLoginSuccess={(newSession) => {
           setSession(newSession);
           if (newSession.role === 'owner') {
-            setCurrentTab('pos');
+            setCurrentTab('stores_dash');
           } else {
             setCurrentTab('customer_history');
           }

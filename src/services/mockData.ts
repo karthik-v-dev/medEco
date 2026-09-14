@@ -1,4 +1,4 @@
-import { Medicine, Customer, Invoice, MedicineReminder, PharmacyProfile, OnlineOrder } from '../types';
+import { Medicine, Customer, Invoice, MedicineReminder, PharmacyProfile, OnlineOrder, PharmacyBranch, BranchStockItem } from '../types';
 
 export const DEFAULT_PHARMACY_PROFILE: PharmacyProfile = {
   name: "medEco Pharmacy & Healthcare",
@@ -510,14 +510,196 @@ export const INITIAL_REMINDERS: MedicineReminder[] = [
   }
 ];
 
+export const INITIAL_BRANCHES: PharmacyBranch[] = [
+  {
+    id: "pharm-koramangala",
+    name: "medEco Pharmacy - Koramangala 5th Block",
+    code: "ECO-KOR-01",
+    area: "Koramangala",
+    address: "80 Feet Road, Near Sony World Signal, 5th Block",
+    doorNumber: "Shop #14, Ground Floor",
+    pincode: "560034",
+    phone: "+91 98765 43210",
+    email: "koramangala@medeco-pharmacy.com",
+    managerName: "Dr. Ramesh Gupta (B.Pharm)",
+    managerPhone: "9876543210",
+    managerPin: "9999",
+    coordinates: {
+      latitude: 12.9352,
+      longitude: 77.6245
+    },
+    deliveryRadiusKm: 7.5,
+    estimatedDeliveryTime: "25-35 mins",
+    isOpen24x7: true,
+    rating: 4.9,
+    isActive: true
+  },
+  {
+    id: "pharm-indiranagar",
+    name: "medEco Pharmacy - Indiranagar 100ft Hub",
+    code: "ECO-IND-02",
+    area: "Indiranagar",
+    address: "100 Feet Road, HAL 2nd Stage, Near CMH Hospital",
+    doorNumber: "Building #88, Ground Floor",
+    pincode: "560038",
+    phone: "+91 98765 43211",
+    email: "indiranagar@medeco-pharmacy.com",
+    managerName: "Ms. Shalini Murthy (M.Pharm)",
+    managerPhone: "9876543211",
+    managerPin: "8888",
+    coordinates: {
+      latitude: 12.9784,
+      longitude: 77.6408
+    },
+    deliveryRadiusKm: 6.5,
+    estimatedDeliveryTime: "20-30 mins",
+    isOpen24x7: false,
+    rating: 4.8,
+    isActive: true
+  },
+  {
+    id: "pharm-whitefield",
+    name: "medEco Pharmacy - Whitefield MedPark",
+    code: "ECO-WFD-03",
+    area: "Whitefield",
+    address: "ITPL Main Road, Beside Prestige Ozone",
+    doorNumber: "Unit #04, Ozone Arcade",
+    pincode: "560066",
+    phone: "+91 98765 43212",
+    email: "whitefield@medeco-pharmacy.com",
+    managerName: "Mr. Anand Varma (B.Pharm)",
+    managerPhone: "9876543212",
+    managerPin: "7777",
+    coordinates: {
+      latitude: 12.9698,
+      longitude: 77.7499
+    },
+    deliveryRadiusKm: 8.5,
+    estimatedDeliveryTime: "30-45 mins",
+    isOpen24x7: true,
+    rating: 4.7,
+    isActive: true
+  },
+  {
+    id: "pharm-jayanagar",
+    name: "medEco Pharmacy - Jayanagar 4th Block",
+    code: "ECO-JAY-04",
+    area: "Jayanagar",
+    address: "11th Main Road, Near Jayanagar Shopping Complex",
+    doorNumber: "Door #22, Metro Pillar 42",
+    pincode: "560011",
+    phone: "+91 98765 43213",
+    email: "jayanagar@medeco-pharmacy.com",
+    managerName: "Dr. Geeta Nair (Pharm.D)",
+    managerPhone: "9876543213",
+    managerPin: "6666",
+    coordinates: {
+      latitude: 12.9299,
+      longitude: 77.5824
+    },
+    deliveryRadiusKm: 6.0,
+    estimatedDeliveryTime: "20-30 mins",
+    isOpen24x7: false,
+    rating: 4.9,
+    isActive: true
+  },
+  {
+    id: "pharm-hsr",
+    name: "medEco Pharmacy - HSR Layout Sector 2",
+    code: "ECO-HSR-05",
+    area: "HSR Layout",
+    address: "27th Main Road, Sector 2, Near NIFT College",
+    doorNumber: "Shop #5, Ground Floor",
+    pincode: "560102",
+    phone: "+91 98765 43214",
+    email: "hsr@medeco-pharmacy.com",
+    managerName: "Mr. Vikram Rao (B.Pharm)",
+    managerPhone: "9876543214",
+    managerPin: "5555",
+    coordinates: {
+      latitude: 12.9116,
+      longitude: 77.6389
+    },
+    deliveryRadiusKm: 7.0,
+    estimatedDeliveryTime: "25-35 mins",
+    isOpen24x7: true,
+    rating: 4.8,
+    isActive: true
+  }
+];
+
+export const INITIAL_BRANCH_STOCKS: BranchStockItem[] = [
+  // Koramangala
+  { branchId: "pharm-koramangala", medicineId: "med-01", stock: 120, minStockAlert: 20 },
+  { branchId: "pharm-koramangala", medicineId: "med-02", stock: 45, minStockAlert: 10 },
+  { branchId: "pharm-koramangala", medicineId: "med-03", stock: 80, minStockAlert: 15 },
+  { branchId: "pharm-koramangala", medicineId: "med-04", stock: 150, minStockAlert: 25 },
+  { branchId: "pharm-koramangala", medicineId: "med-05", stock: 25, minStockAlert: 8 },
+  { branchId: "pharm-koramangala", medicineId: "med-06", stock: 18, minStockAlert: 6 },
+  { branchId: "pharm-koramangala", medicineId: "med-07", stock: 65, minStockAlert: 12 },
+  { branchId: "pharm-koramangala", medicineId: "med-08", stock: 90, minStockAlert: 15 },
+  { branchId: "pharm-koramangala", medicineId: "med-09", stock: 40, minStockAlert: 10 },
+  { branchId: "pharm-koramangala", medicineId: "med-10", stock: 55, minStockAlert: 10 },
+
+  // Indiranagar
+  { branchId: "pharm-indiranagar", medicineId: "med-01", stock: 95, minStockAlert: 20 },
+  { branchId: "pharm-indiranagar", medicineId: "med-02", stock: 30, minStockAlert: 10 },
+  { branchId: "pharm-indiranagar", medicineId: "med-03", stock: 60, minStockAlert: 15 },
+  { branchId: "pharm-indiranagar", medicineId: "med-04", stock: 110, minStockAlert: 25 },
+  { branchId: "pharm-indiranagar", medicineId: "med-05", stock: 15, minStockAlert: 8 },
+  { branchId: "pharm-indiranagar", medicineId: "med-06", stock: 22, minStockAlert: 6 },
+  { branchId: "pharm-indiranagar", medicineId: "med-07", stock: 40, minStockAlert: 12 },
+  { branchId: "pharm-indiranagar", medicineId: "med-08", stock: 75, minStockAlert: 15 },
+  { branchId: "pharm-indiranagar", medicineId: "med-09", stock: 25, minStockAlert: 10 },
+  { branchId: "pharm-indiranagar", medicineId: "med-10", stock: 35, minStockAlert: 10 },
+
+  // Whitefield
+  { branchId: "pharm-whitefield", medicineId: "med-01", stock: 65, minStockAlert: 20 },
+  { branchId: "pharm-whitefield", medicineId: "med-02", stock: 12, minStockAlert: 10 }, // Low stock
+  { branchId: "pharm-whitefield", medicineId: "med-03", stock: 45, minStockAlert: 15 },
+  { branchId: "pharm-whitefield", medicineId: "med-04", stock: 80, minStockAlert: 25 },
+  { branchId: "pharm-whitefield", medicineId: "med-05", stock: 0, minStockAlert: 8 },   // Out of stock
+  { branchId: "pharm-whitefield", medicineId: "med-06", stock: 14, minStockAlert: 6 },
+  { branchId: "pharm-whitefield", medicineId: "med-07", stock: 50, minStockAlert: 12 },
+  { branchId: "pharm-whitefield", medicineId: "med-08", stock: 60, minStockAlert: 15 },
+  { branchId: "pharm-whitefield", medicineId: "med-09", stock: 18, minStockAlert: 10 },
+  { branchId: "pharm-whitefield", medicineId: "med-10", stock: 42, minStockAlert: 10 },
+
+  // Jayanagar
+  { branchId: "pharm-jayanagar", medicineId: "med-01", stock: 140, minStockAlert: 20 },
+  { branchId: "pharm-jayanagar", medicineId: "med-02", stock: 50, minStockAlert: 10 },
+  { branchId: "pharm-jayanagar", medicineId: "med-03", stock: 95, minStockAlert: 15 },
+  { branchId: "pharm-jayanagar", medicineId: "med-04", stock: 130, minStockAlert: 25 },
+  { branchId: "pharm-jayanagar", medicineId: "med-05", stock: 30, minStockAlert: 8 },
+  { branchId: "pharm-jayanagar", medicineId: "med-06", stock: 25, minStockAlert: 6 },
+  { branchId: "pharm-jayanagar", medicineId: "med-07", stock: 70, minStockAlert: 12 },
+  { branchId: "pharm-jayanagar", medicineId: "med-08", stock: 100, minStockAlert: 15 },
+  { branchId: "pharm-jayanagar", medicineId: "med-09", stock: 48, minStockAlert: 10 },
+  { branchId: "pharm-jayanagar", medicineId: "med-10", stock: 60, minStockAlert: 10 },
+
+  // HSR Layout
+  { branchId: "pharm-hsr", medicineId: "med-01", stock: 85, minStockAlert: 20 },
+  { branchId: "pharm-hsr", medicineId: "med-02", stock: 28, minStockAlert: 10 },
+  { branchId: "pharm-hsr", medicineId: "med-03", stock: 55, minStockAlert: 15 },
+  { branchId: "pharm-hsr", medicineId: "med-04", stock: 90, minStockAlert: 25 },
+  { branchId: "pharm-hsr", medicineId: "med-05", stock: 20, minStockAlert: 8 },
+  { branchId: "pharm-hsr", medicineId: "med-06", stock: 16, minStockAlert: 6 },
+  { branchId: "pharm-hsr", medicineId: "med-07", stock: 45, minStockAlert: 12 },
+  { branchId: "pharm-hsr", medicineId: "med-08", stock: 80, minStockAlert: 15 },
+  { branchId: "pharm-hsr", medicineId: "med-09", stock: 32, minStockAlert: 10 },
+  { branchId: "pharm-hsr", medicineId: "med-10", stock: 40, minStockAlert: 10 }
+];
+
 export const INITIAL_ONLINE_ORDERS: OnlineOrder[] = [
   {
     id: "ord-101",
     orderNumber: "ORD-2026-101",
+    pharmacyId: "pharm-koramangala",
+    pharmacyName: "medEco Pharmacy - Koramangala 5th Block",
     customerName: "Rahul Sharma",
     customerMobile: "9876543210",
     doorNumber: "Flat #402, 4th Floor",
-    address: "Sunshine Heights, 4th Cross Road, Indiranagar",
+    address: "Sunshine Heights, 4th Cross Road, Koramangala",
     landmark: "Opposite Green Park Metro Station",
     pincode: "560034",
     geoCoordinates: {
@@ -548,9 +730,57 @@ export const INITIAL_ONLINE_ORDERS: OnlineOrder[] = [
       }
     ],
     estimatedTotal: 234.00,
-    status: "PENDING",
-    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 mins ago
+    status: "VERIFIED",
+    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    verifiedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     notes: "Patient requested urgent delivery for high fever"
+  },
+  {
+    id: "ord-102",
+    orderNumber: "ORD-2026-102",
+    pharmacyId: "pharm-indiranagar",
+    pharmacyName: "medEco Pharmacy - Indiranagar 100ft Hub",
+    customerName: "Priya Patel",
+    customerMobile: "9123456780",
+    doorNumber: "Villa #18, Lotus Court",
+    address: "12th Main Road, HAL 2nd Stage, Indiranagar",
+    landmark: "Near Corner House Ice Cream",
+    pincode: "560038",
+    geoCoordinates: {
+      latitude: 12.9784,
+      longitude: 77.6408,
+      accuracyMeters: 8
+    },
+    prescriptionFileName: "dr_rx_priya_chronic.png",
+    prescriptionImageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=600",
+    items: [
+      {
+        medicineId: "med-05",
+        medicineName: "Glycomet-GP 1",
+        genericName: "Glimepiride (1mg) + Metformin (500mg)",
+        dosage: "1 tab daily with food",
+        quantity: 3,
+        unitPrice: 128.00,
+        rackInfo: "Rack B > Shelf 1 > Box-02"
+      },
+      {
+        medicineId: "med-06",
+        medicineName: "Telma 40",
+        genericName: "Telmisartan 40mg",
+        dosage: "1 tab morning after food",
+        quantity: 2,
+        unitPrice: 142.50,
+        rackInfo: "Rack B > Shelf 2 > Box-05"
+      }
+    ],
+    estimatedTotal: 669.00,
+    status: "OUT_FOR_DELIVERY",
+    createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    verifiedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+    packedAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+    dispatchedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    notes: "Regular monthly refill. Fragile packaging."
   }
 ];
+
 

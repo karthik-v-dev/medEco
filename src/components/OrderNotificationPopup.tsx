@@ -14,10 +14,14 @@ import {
   Receipt,
   Eye,
   Camera,
-  Navigation
+  Navigation,
+  Building2,
+  PackageCheck,
+  Truck,
+  ShieldCheck
 } from 'lucide-react';
-import { OnlineOrder } from '../types';
-import { updateOrderStatus } from '../services/firebase';
+import { OnlineOrder, OrderStatus } from '../types';
+import { advanceOrderStatus } from '../services/firebase';
 import { GoogleMapViewer } from './GoogleMapViewer';
 
 interface OrderNotificationPopupProps {
@@ -34,24 +38,19 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
   onAcceptAndBill
 }) => {
   const [isZoomingRx, setIsZoomingRx] = useState(false);
-  const [accepted, setAccepted] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
 
   if (!isOpen || !order) return null;
 
-  const handleAccept = async () => {
-    await updateOrderStatus(order.id, 'ACCEPTED');
-    setAccepted(true);
+  const handleUpdateStatus = async (status: OrderStatus, label: string) => {
+    await advanceOrderStatus(order.id, status);
+    setNotificationStatus(`Status updated: ${label}`);
     setTimeout(() => {
-      setAccepted(false);
-      onClose();
-    }, 1200);
-  };
-
-  const handleReject = async () => {
-    if (confirm("Are you sure you want to reject this online order?")) {
-      await updateOrderStatus(order.id, 'REJECTED');
-      onClose();
-    }
+      setNotificationStatus(null);
+      if (status === 'DELIVERED' || status === 'CANCELLED') {
+        onClose();
+      }
+    }, 1500);
   };
 
   const mapsUrl = order.geoCoordinates 
@@ -62,22 +61,24 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border-2 border-emerald-500 overflow-hidden my-4 max-h-[92vh] flex flex-col">
         {/* Animated Header */}
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-5 flex items-center justify-between shrink-0">
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-4 sm:p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white relative">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white relative shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-60"></span>
-              <Bell className="w-6 h-6 animate-bounce" />
+              <Bell className="w-5 h-5 sm:w-6 sm:h-6 animate-bounce" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="bg-white/20 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  New Order Alert
+                  Store Order Alert
                 </span>
                 <span className="font-mono text-xs text-emerald-200">
                   {order.orderNumber}
                 </span>
               </div>
-              <h3 className="font-extrabold text-lg text-white">Online Medicine Order Received!</h3>
+              <h3 className="font-extrabold text-base sm:text-lg text-white">
+                Online Medicine Order Received!
+              </h3>
             </div>
           </div>
 
@@ -89,114 +90,147 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
           </button>
         </div>
 
+        {/* Assigned Branch Banner */}
+        <div className="bg-emerald-50 dark:bg-emerald-950/60 border-b border-emerald-200 dark:border-emerald-800 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-emerald-900 dark:text-emerald-200">
+            <Building2 className="w-4 h-4 text-emerald-600" />
+            <span>Assigned Branch: <span className="underline">{order.pharmacyName || 'Koramangala 5th Block'}</span></span>
+          </div>
+
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100">
+            Current Status: {order.status}
+          </span>
+        </div>
+
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-800 dark:text-slate-200">
-          {accepted && (
-            <div className="p-4 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 rounded-2xl font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <span>Order Accepted Successfully! Customer notified.</span>
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs text-slate-800 dark:text-slate-200">
+          {notificationStatus && (
+            <div className="p-3 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 rounded-2xl font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>{notificationStatus}</span>
             </div>
           )}
 
-          {/* Customer Contact & Phone */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                Customer Details
-              </span>
-              <strong className="text-sm text-slate-900 dark:text-white block">
-                {order.customerName}
-              </strong>
-              <a
-                href={`tel:+91${order.customerMobile}`}
-                className="inline-flex items-center gap-1.5 font-mono text-emerald-700 dark:text-emerald-400 font-bold text-xs mt-1 hover:underline"
+          {/* Customer and Delivery Location */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-emerald-600" />
+                <span className="font-extrabold text-slate-900 dark:text-white text-sm">
+                  {order.customerName}
+                </span>
+              </div>
+
+              <a 
+                href={`tel:${order.customerMobile}`}
+                className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800"
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>+91 {order.customerMobile}</span>
               </a>
             </div>
 
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                Order Placed At
-              </span>
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
-                {new Date(order.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} • {new Date(order.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-              </span>
-              <span className="block mt-1 font-bold text-amber-700 dark:text-amber-400">
-                Status: {order.status}
-              </span>
+            {/* Delivery address details with door number & pincode */}
+            <div className="space-y-1 pt-1">
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {order.doorNumber && (
+                      <span className="font-extrabold text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[11px]">
+                        Door: {order.doorNumber}
+                      </span>
+                    )}
+                    {order.pincode && (
+                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[11px]">
+                        PIN: {order.pincode}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300 font-medium text-xs mt-1">
+                    {order.address}
+                  </p>
+                  {order.landmark && (
+                    <p className="text-[11px] text-slate-500">
+                      Landmark: <span className="font-semibold text-slate-600 dark:text-slate-400">{order.landmark}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Embedded Google Maps Pinpoint */}
+              <div className="pt-2">
+                <GoogleMapViewer
+                  latitude={order.geoCoordinates?.latitude || 12.9352}
+                  longitude={order.geoCoordinates?.longitude || 77.6245}
+                  doorNumber={order.doorNumber}
+                  address={order.address}
+                  landmark={order.landmark}
+                  pincode={order.pincode}
+                  title="Customer Delivery Pinpoint"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Exact Location, Door Number, Pincode & Google Maps */}
-          <div>
-            <GoogleMapViewer
-              latitude={order.geoCoordinates?.latitude || 12.9352}
-              longitude={order.geoCoordinates?.longitude || 77.6245}
-              doorNumber={order.doorNumber}
-              address={order.address}
-              landmark={order.landmark}
-              pincode={order.pincode}
-              height="200px"
-              showNavigationLink={true}
-            />
-          </div>
-
-          {/* Doctor Prescription Attached */}
+          {/* Prescription Image & OCR Preview */}
           {order.prescriptionImageUrl && (
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] flex items-center gap-1.5">
-                  <Camera className="w-3.5 h-3.5 text-emerald-600" />
-                  Uploaded Doctor's Prescription
+                <span className="font-bold flex items-center gap-1.5 text-slate-900 dark:text-white">
+                  <Camera className="w-4 h-4 text-emerald-600" />
+                  Uploaded Doctor Prescription
                 </span>
                 <button
-                  type="button"
                   onClick={() => setIsZoomingRx(true)}
-                  className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-bold text-[11px]"
                 >
-                  <Eye className="w-3 h-3" />
-                  <span>Inspect Full Image</span>
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Click to Zoom</span>
                 </button>
               </div>
 
               <div 
                 onClick={() => setIsZoomingRx(true)}
-                className="cursor-pointer border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden max-h-40 relative group"
+                className="cursor-zoom-in relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-48 group bg-black/5"
               >
                 <img
                   src={order.prescriptionImageUrl}
                   alt="Doctor Prescription"
-                  className="w-full h-40 object-cover group-hover:scale-105 transition-transform"
+                  className="w-full h-44 object-cover group-hover:scale-105 transition-transform"
                 />
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white font-bold text-xs transition-opacity">
-                  Click to Zoom Prescription
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold gap-1">
+                  <Eye className="w-5 h-5" />
+                  <span>Inspect Full Prescription</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Prescribed / Required Medicines with Exact Storage Racks */}
+          {/* Prescribed Items & Rack Retrieval Coordinates */}
           <div className="space-y-2">
-            <span className="font-extrabold text-[11px] uppercase tracking-wider text-slate-800 dark:text-slate-200 block">
-              Required Tablets & Medicines ({order.items.length} items) - Rack Picking Locations:
-            </span>
+            <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-emerald-600" />
+              <span>Medicine Storage Locations (Rack Coordinates)</span>
+            </h4>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {order.items.map((item, idx) => (
-                <div 
+                <div
                   key={idx}
-                  className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3 shadow-2xs"
+                  className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between"
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <strong className="text-slate-900 dark:text-white text-xs">{item.medicineName}</strong>
-                      <span className="text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded">
-                        {item.rackInfo}
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>{item.medicineName}</span>
+                      <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 rounded font-mono">
+                        {item.dosage}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-500 block">{item.dosage}</span>
+                    <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-emerald-600" />
+                      <span>{item.rackInfo}</span>
+                    </div>
                   </div>
 
                   <div className="text-right">
@@ -212,7 +246,7 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
             </div>
 
             <div className="flex justify-between items-center p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold">
-              <span>Estimated Order Value:</span>
+              <span>Estimated Order Total:</span>
               <span className="text-emerald-700 dark:text-emerald-400 text-sm font-black">
                 ₹{order.estimatedTotal.toFixed(2)}
               </span>
@@ -226,34 +260,71 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
           )}
         </div>
 
-        {/* Modal Action Buttons */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        {/* Standard Online Pharmacy SOP Action Buttons */}
+        <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <button
-            onClick={handleReject}
-            className="w-full sm:w-auto px-4 py-2 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-xl font-bold text-xs"
+            onClick={() => handleUpdateStatus('CANCELLED', 'Cancelled')}
+            className="px-3 py-2 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-xl font-bold text-xs"
           >
-            Reject Order
+            Reject / Cancel
           </button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button
-              onClick={handleAccept}
-              className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-4 h-4" />
-              <span>Accept Order</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Step 1: Verify */}
+            {order.status === 'PENDING' && (
+              <button
+                onClick={() => handleUpdateStatus('VERIFIED', 'Verified by Pharmacist')}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Verify Rx</span>
+              </button>
+            )}
 
+            {/* Step 2: Pack from Rack */}
+            {(order.status === 'PENDING' || order.status === 'VERIFIED') && (
+              <button
+                onClick={() => handleUpdateStatus('PACKED', 'Packed from Racks')}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1"
+              >
+                <PackageCheck className="w-3.5 h-3.5" />
+                <span>Pack from Rack</span>
+              </button>
+            )}
+
+            {/* Step 3: Load to POS & Bill */}
             {onAcceptAndBill && (
               <button
                 onClick={() => {
-                  handleAccept();
+                  handleUpdateStatus('PACKED', 'Loaded to POS');
                   onAcceptAndBill(order);
                 }}
-                className="flex-1 sm:flex-none px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs shadow-md flex items-center justify-center gap-1.5"
+                className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1"
               >
-                <Receipt className="w-4 h-4 text-emerald-400" />
-                <span>Accept & Load to POS</span>
+                <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Bill in POS</span>
+              </button>
+            )}
+
+            {/* Step 4: Dispatch Delivery */}
+            {order.status === 'PACKED' && (
+              <button
+                onClick={() => handleUpdateStatus('OUT_FOR_DELIVERY', 'Dispatched for Delivery')}
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1"
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>Dispatch Runner</span>
+              </button>
+            )}
+
+            {/* Step 5: Delivered */}
+            {order.status === 'OUT_FOR_DELIVERY' && (
+              <button
+                onClick={() => handleUpdateStatus('DELIVERED', 'Delivered to Patient')}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Mark Delivered</span>
               </button>
             )}
           </div>
