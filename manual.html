@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>medEco - Official User Manual & Operational Guide</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      line-height: 1.5;
+      font-size: 11pt;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+    }
+    .header {
+      text-align: center;
+      border-bottom: 3px solid #059669;
+      padding-bottom: 20px;
+      margin-bottom: 25px;
+    }
+    .logo-badge {
+      display: inline-block;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 9pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: 26pt;
+      margin: 0 0 8px 0;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+    }
+    h1 span {
+      color: #059669;
+    }
+    .subtitle {
+      font-size: 12pt;
+      color: #475569;
+      max-width: 600px;
+      margin: 0 auto 10px auto;
+    }
+    .meta-row {
+      font-size: 9pt;
+      color: #64748b;
+      font-family: monospace;
+    }
+    .toc-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 30px;
+      page-break-inside: avoid;
+    }
+    .toc-title {
+      font-size: 10pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+    .toc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 9.5pt;
+      font-weight: 600;
+      color: #047857;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #0f172a;
+      border-bottom: 1.5px solid #cbd5e1;
+      padding-bottom: 6px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      page-break-after: avoid;
+    }
+    p {
+      margin: 0 0 10px 0;
+    }
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+    .card-emerald {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #064e3b;
+    }
+    .card-amber {
+      background: #fffbeb;
+      border-color: #fde68a;
+      color: #78350f;
+    }
+    .card-blue {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1e3a8a;
+    }
+    ul, ol {
+      margin: 0 0 10px 0;
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    code {
+      font-family: monospace;
+      background: #e2e8f0;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 9pt;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 15px;
+      text-align: center;
+      font-size: 9pt;
+      color: #94a3b8;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      margin-bottom: 14px;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 10px;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo-badge">Official System Documentation</div>
+    <h1>med<span>Eco</span> User Manual</h1>
+    <div class="subtitle">Smart Medicine Rack Locator, POS Billing with GST, Customer Health History & Dose Reminders</div>
+    <div class="meta-row">Version 1.2.0 • Stack: React 18 + Vite + TypeScript + Firebase RTDB</div>
+  </div>
+
+  <div class="toc-box">
+    <div class="toc-title">Table of Contents</div>
+    <div class="toc-grid">
+      <div>1. System Architecture & Dual Roles</div>
+      <div>2. "Where is Tablet?" Storage Locator</div>
+      <div>3. Visual Pharmacy Rack Layout Map</div>
+      <div>4. POS Billing, GST & Discounts</div>
+      <div>5. Customer Mobile Login & Data Privacy</div>
+      <div>6. Medicine Dose Reminders & Adherence</div>
+      <div>7. Pharmacy Owner Portal & Customer Audit</div>
+      <div>8. Appearance & Theme Settings</div>
+    </div>
+  </div>
+
+  <h2>1. System Architecture & Dual Roles</h2>
+  <p>
+    <strong>medEco</strong> serves two primary stakeholders with distinct permission models:
+  </p>
+  <table>
+    <tr>
+      <th>User Role</th>
+      <th>Authentication Method</th>
+      <th>Permissions & Access</th>
+    </tr>
+    <tr>
+      <td><strong>Customer / Patient</strong></td>
+      <td>10-digit mobile number + OTP</td>
+      <td>
+        <strong>Strict Privacy:</strong> Can ONLY access their own previous purchase history, past receipts, personal dose reminders, and search public medicine rack locations.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Pharmacy Owner / Staff</strong></td>
+      <td>Owner Password (<code>admin123</code>) or PIN (<code>9999</code>)</td>
+      <td>
+        <strong>Full Control:</strong> POS Billing, Inventory costs & profit margins, Rack assignment, Customer Directory audit, and Store Receipt archives.
+      </td>
+    </tr>
+  </table>
+
+  <h2>2. "Where is Tablet?" Storage Locator</h2>
+  <p>
+    When a customer or doctor requests a medicine, enter the name into the instant search bar (e.g. <em>Dolo 650</em>, <em>Augmentin</em>, <em>Pan 40</em>, or <em>Metformin</em>).
+  </p>
+  <div class="card card-emerald">
+    <strong>Storage Coordinates Provided:</strong>
+    <ul>
+      <li><strong>Rack Identifier:</strong> e.g., <code>Rack A</code>, <code>Rack B</code>, <code>Cold Storage</code>.</li>
+      <li><strong>Shelf Level:</strong> e.g., <code>Shelf 1</code>, <code>Shelf 2</code>, indicating vertical position.</li>
+      <li><strong>Box / Bin ID:</strong> e.g., <code>Box-01</code>, <code>Box-04</code>, locating the exact storage tray.</li>
+      <li><strong>Storage Notes:</strong> e.g., <em>"Store below 25°C"</em> or <em>"2°C - 8°C Keep Refrigerated"</em>.</li>
+      <li><strong>Unit MRP & Stock:</strong> Real-time available units, batch number, and expiry date.</li>
+    </ul>
+  </div>
+
+  <h2>3. Visual Pharmacy Rack Layout Map</h2>
+  <p>
+    The interactive Rack Map visualizes physical shelving across the store:
+  </p>
+  <div class="grid-2">
+    <div class="card">
+      <strong>Rack A: Fast Moving & Antibiotics</strong><br>
+      Paracetamol, Augmentin, Pan 40, Azithral
+    </div>
+    <div class="card">
+      <strong>Rack B: Chronic Care (Diabetes & Heart)</strong><br>
+      Glycomet-GP 1 (Metformin), Telma 40 (BP)
+    </div>
+    <div class="card">
+      <strong>Rack C & D: Liquids, Ointments & Drops</strong><br>
+      Cough Syrups, Volini Pain Gel, Eye Drops
+    </div>
+    <div class="card card-blue">
+      <strong>Cold Storage: Medical Refrigerator (2-8°C)</strong><br>
+      Lantus Insulin Pens, Vaccines & Biologicals
+    </div>
+  </div>
+
+  <h2>4. POS Billing with GST & Discounts</h2>
+  <p>
+    The POS terminal calculates itemized tax receipts according to Indian GST standards:
+  </p>
+  <ul>
+    <li><strong>Cart Addition:</strong> Select quantities with stock deduction validation.</li>
+    <li><strong>Customer Mobile Lookup:</strong> Automatically links the sale to the customer's phone number.</li>
+    <li><strong>Discount Engine:</strong> Choose Percentage (e.g., 5%, 10%, 15%) or Flat (₹) off.</li>
+    <li><strong>GST Breakdown:</strong> Computes Taxable Value, CGST (e.g. 6%), and SGST (e.g. 6%).</li>
+    <li><strong>Tax Receipt:</strong> Thermal printer and A4 printable receipt with 1-click WhatsApp share.</li>
+  </ul>
+
+  <h2>5. Customer Mobile Login & Data Privacy</h2>
+  <div class="card card-amber">
+    <strong>Strict Data Isolation Principle:</strong>
+    <p>
+      Each customer's account is uniquely keyed by their 10-digit mobile number ("One Customer, One Account").
+      Customers <strong>NEVER</strong> see other patients' purchase records, wholesale cost prices, or store billing terminals. They only see their own prescriptions, invoices, and dose checklists.
+    </p>
+  </div>
+
+  <h2>6. Medicine Dose Reminders & Adherence Tracker</h2>
+  <p>
+    Ensure patients complete their courses with scheduled reminders:
+  </p>
+  <ul>
+    <li><strong>Timings:</strong> Morning, Afternoon, Evening, Night with clock timings.</li>
+    <li><strong>Meal Relation:</strong> Before Food, After Food, With Food, or Empty Stomach.</li>
+    <li><strong>Daily Checklist:</strong> Interactive "Taken" or "Pending" checklist with daily adherence %.</li>
+    <li><strong>WhatsApp Ping:</strong> Send formatted dose alerts to family members or patient phones.</li>
+  </ul>
+
+  <h2>7. Pharmacy Owner Portal & Customer Audit</h2>
+  <p>
+    Store owners sign in with password <code>admin123</code> to access:
+  </p>
+  <ul>
+    <li><strong>Customer Directory:</strong> Inspect any patient's previous order history, total spent, and active reminders.</li>
+    <li><strong>Inventory & Costs:</strong> Maintain wholesale purchase prices, selling prices, and shelf locations.</li>
+    <li><strong>Sales Receipt Archive:</strong> Audit all historical transactions.</li>
+  </ul>
+
+  <h2>8. Appearance & Theme Settings</h2>
+  <p>
+    medEco supports 3 distinct appearance modes via the Theme button in the navigation bar:
+  </p>
+  <ul>
+    <li><strong>Light Mode:</strong> High contrast for daytime use in well-lit retail pharmacies.</li>
+    <li><strong>Dark Mode:</strong> Soft, low-contrast dark palette for night shifts and reduced eye strain.</li>
+    <li><strong>Default (System):</strong> Automatically adapts to the operating system's dark/light preference.</li>
+  </ul>
+
+  <div class="footer">
+    medEco Pharmacy & Healthcare Solutions • Shop #14, Green Avenue MedZone, Bangalore • care@medeco-pharmacy.com
+  </div>
+
+</body>
+</html>
