@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded App Icon Background -->
+  <rect width="92" height="92" x="4" y="4" rx="24" fill="url(#bgGrad)" filter="url(#dropShadow)" />
+
+  <!-- Medical Pill Capsule Angle -->
+  <g transform="rotate(-35 50 50)">
+    <!-- Pill Capsule Top Half (White) -->
+    <path d="M36 28 C36 20, 64 20, 64 28 L64 50 L36 50 Z" fill="#ffffff" />
+    
+    <!-- Pill Capsule Bottom Half (Teal/Emerald Accent) -->
+    <path d="M36 50 L64 50 L64 72 C64 80, 36 80, 36 72 Z" fill="#a7f3d0" />
+
+    <!-- Center Pill Dividing Line -->
+    <line x1="36" y1="50" x2="64" y2="50" stroke="#059669" stroke-width="2.5" />
+    
+    <!-- Medical Plus Cross in Top Half -->
+    <path d="M47 33 h6 v10 h-6 z M44 36 h12 v4 h-12 z" fill="#059669" />
+  </g>
+
+  <!-- Eco Leaf Emblem (Sprouting from bottom right of pill) -->
+  <path d="M52 52 C52 38, 72 34, 76 34 C76 34, 78 54, 64 64 C56 68, 52 58, 52 52 Z" fill="url(#leafGrad)" />
+  <path d="M54 54 Q64 48 74 36" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.8" />
+</svg>
