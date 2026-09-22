@@ -185,13 +185,13 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({
       dosageInstruction: item.selectedDosageInstructions
     }));
 
-    const cleanPhone = customerPhone.replace(/\D/g, '') || '9876543210';
+    const cleanPhone = customerPhone.replace(/\D/g, '');
     const finalInvoice: Invoice = {
       id: `inv-${Date.now()}`,
       invoiceNumber,
       date: new Date().toISOString(),
-      customerMobile: cleanPhone,
-      customerName: customerName.trim() || `Customer ${cleanPhone.slice(-4)}`,
+      customerMobile: cleanPhone || 'WALK-IN',
+      customerName: customerName.trim() || (cleanPhone ? `Customer ${cleanPhone.slice(-4)}` : 'Walk-in Customer'),
       items: invoiceItems,
       subtotal,
       discountType,

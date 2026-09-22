@@ -10,29 +10,37 @@ import {
   OnlineOrder, 
   OrderStatus,
   PharmacyBranch,
-  BranchStockItem
+  BranchStockItem,
+  PendingStockConsignment,
+  UserAccount,
+  DeliveryZone
 } from '../types';
-import {
-  DEFAULT_PHARMACY_PROFILE,
-  INITIAL_MEDICINES,
-  INITIAL_CUSTOMERS,
-  INITIAL_INVOICES,
-  INITIAL_REMINDERS,
-  INITIAL_ONLINE_ORDERS,
-  INITIAL_BRANCHES,
-  INITIAL_BRANCH_STOCKS
-} from './mockData';
+// Real Pharmacy Profile fallback if database not yet initialized
+export const DEFAULT_PHARMACY_PROFILE: PharmacyProfile = {
+  name: "medEco Pharmacy & Wellness Hub",
+  tagline: "Retail & Online Healthcare Solutions",
+  address: "Shop #14, Chowrasta Circle, Main Road, Hanamkonda, Warangal, Telangana - 506001",
+  phone: "+91 870 244 5566",
+  email: "care@medeco-pharmacy.com",
+  gstin: "36AABCM1234F1Z8",
+  drugLicenseNo: "TS-WAR-2024-88741",
+  fssaiNo: "13624005000214"
+};
 
 // User specified Firebase Realtime Database URL
-export const FIREBASE_DB_URL = "https://mediaclinfo-default-rtdb.firebaseio.com/";
+export const FIREBASE_DB_URL = "https://mediaclinfo-default-rtdb.firebaseio.com";
 
-// Firebase web configuration with RTDB endpoint
+// Real Firebase web configuration from MediaclInfo project
 const firebaseConfig = {
-  databaseURL: FIREBASE_DB_URL,
   projectId: "mediaclinfo",
-  storageBucket: "mediaclinfo.appspot.com",
-  messagingSenderId: "100000000000",
-  appId: "1:100000000000:web:abcdef1234567890"
+  appId: "1:379113395226:web:6beb02cffa45609a2a2da3",
+  databaseURL: FIREBASE_DB_URL,
+  storageBucket: "mediaclinfo.firebasestorage.app",
+  apiKey: "AIzaSyBYpBnUbufkDuzYKk2BBffVhgxcdjD3J_I",
+  authDomain: "mediaclinfo.firebaseapp.com",
+  messagingSenderId: "379113395226",
+  measurementId: "G-92S988XHCX",
+  projectNumber: "379113395226"
 };
 
 // Initialize Firebase App singleton
@@ -44,18 +52,20 @@ try {
   console.warn("Firebase Realtime Database init warning:", err);
 }
 
-// LocalStorage cache keys
+// LocalStorage cache keys (v3 for pure Firebase Realtime Database live sync)
 const STORAGE_KEYS = {
-  MEDICINES: 'medeco_medicines_v1',
-  CUSTOMERS: 'medeco_customers_v1',
-  INVOICES: 'medeco_invoices_v1',
-  REMINDERS: 'medeco_reminders_v1',
-  PROFILE: 'medeco_profile_v1',
-  ACTIVE_CUSTOMER: 'medeco_active_customer_phone',
-  ONLINE_ORDERS: 'medeco_online_orders_v1',
-  BRANCHES: 'medeco_branches_v1',
-  BRANCH_STOCKS: 'medeco_branch_stocks_v1',
-  ACTIVE_BRANCH: 'medeco_active_branch_id'
+  MEDICINES: 'medeco_medicines_v3',
+  CUSTOMERS: 'medeco_customers_v3',
+  INVOICES: 'medeco_invoices_v3',
+  REMINDERS: 'medeco_reminders_v3',
+  PROFILE: 'medeco_profile_v3',
+  ACTIVE_CUSTOMER: 'medeco_active_customer_phone_v3',
+  ONLINE_ORDERS: 'medeco_online_orders_v3',
+  BRANCHES: 'medeco_branches_v3',
+  BRANCH_STOCKS: 'medeco_branch_stocks_v3',
+  PENDING_CONSIGNMENTS: 'medeco_pending_consignments_v3',
+  ACTIVE_BRANCH: 'medeco_active_branch_id_v3',
+  USERS: 'medeco_users_v3'
 };
 
 // State listeners
@@ -95,59 +105,334 @@ function setLocal<T>(key: string, value: T): void {
   }
 }
 
-// Initialize local defaults if empty
-export const initializeDataLayer = async () => {
-  if (!localStorage.getItem(STORAGE_KEYS.MEDICINES)) {
-    setLocal(STORAGE_KEYS.MEDICINES, INITIAL_MEDICINES);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.CUSTOMERS)) {
-    setLocal(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.INVOICES)) {
-    setLocal(STORAGE_KEYS.INVOICES, INITIAL_INVOICES);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.REMINDERS)) {
-    setLocal(STORAGE_KEYS.REMINDERS, INITIAL_REMINDERS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.PROFILE)) {
-    setLocal(STORAGE_KEYS.PROFILE, DEFAULT_PHARMACY_PROFILE);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.ONLINE_ORDERS)) {
-    setLocal(STORAGE_KEYS.ONLINE_ORDERS, INITIAL_ONLINE_ORDERS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.BRANCHES)) {
-    setLocal(STORAGE_KEYS.BRANCHES, INITIAL_BRANCHES);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.BRANCH_STOCKS)) {
-    setLocal(STORAGE_KEYS.BRANCH_STOCKS, INITIAL_BRANCH_STOCKS);
-  }
+// Convert Firebase object map or array to array
+function toArray<T>(val: any): T[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean);
+  return Object.values(val);
+}
 
-  // Attempt initial sync with Firebase Realtime Database
+// Initialize and sync directly with Firebase Realtime Database
+export const initializeDataLayer = async () => {
+  // Query all live real data directly from Firebase Realtime Database
   if (database) {
     try {
-      const medRef = ref(database, 'medicines');
-      const snapshot = await get(medRef);
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        const firebaseMeds = Array.isArray(val) ? val : Object.values(val);
-        if (firebaseMeds && firebaseMeds.length > 0) {
-          setLocal(STORAGE_KEYS.MEDICINES, firebaseMeds);
-        }
-      } else {
-        // Seed Firebase with initial inventory if remote is empty
-        const initialMap: Record<string, Medicine> = {};
-        INITIAL_MEDICINES.forEach(m => { initialMap[m.id] = m; });
-        set(medRef, initialMap).catch(e => console.log("Firebase seed note:", e.message));
+      const [
+        profileSnap,
+        branchesSnap,
+        stocksSnap,
+        medsSnap,
+        custsSnap,
+        invsSnap,
+        ordersSnap,
+        consignSnap,
+        remsSnap,
+        usersSnap
+      ] = await Promise.all([
+        get(ref(database, 'profile')),
+        get(ref(database, 'branches')),
+        get(ref(database, 'branch_stocks')),
+        get(ref(database, 'medicines')),
+        get(ref(database, 'customers')),
+        get(ref(database, 'invoices')),
+        get(ref(database, 'online_orders')),
+        get(ref(database, 'pending_consignments')),
+        get(ref(database, 'reminders')),
+        get(ref(database, 'users'))
+      ]);
+
+      if (profileSnap.exists()) {
+        setLocal(STORAGE_KEYS.PROFILE, profileSnap.val());
+      } else if (!localStorage.getItem(STORAGE_KEYS.PROFILE)) {
+        setLocal(STORAGE_KEYS.PROFILE, DEFAULT_PHARMACY_PROFILE);
+      }
+
+      if (branchesSnap.exists()) {
+        setLocal(STORAGE_KEYS.BRANCHES, toArray<PharmacyBranch>(branchesSnap.val()));
+      }
+      if (stocksSnap.exists()) {
+        setLocal(STORAGE_KEYS.BRANCH_STOCKS, toArray<BranchStockItem>(stocksSnap.val()));
+      }
+      if (medsSnap.exists()) {
+        setLocal(STORAGE_KEYS.MEDICINES, toArray<Medicine>(medsSnap.val()));
+      }
+      if (custsSnap.exists()) {
+        setLocal(STORAGE_KEYS.CUSTOMERS, toArray<Customer>(custsSnap.val()));
+      }
+      if (invsSnap.exists()) {
+        setLocal(STORAGE_KEYS.INVOICES, toArray<Invoice>(invsSnap.val()));
+      }
+      if (ordersSnap.exists()) {
+        setLocal(STORAGE_KEYS.ONLINE_ORDERS, toArray<OnlineOrder>(ordersSnap.val()));
+      }
+      if (consignSnap.exists()) {
+        setLocal(STORAGE_KEYS.PENDING_CONSIGNMENTS, toArray<PendingStockConsignment>(consignSnap.val()));
+      }
+      if (remsSnap.exists()) {
+        setLocal(STORAGE_KEYS.REMINDERS, toArray<MedicineReminder>(remsSnap.val()));
+      }
+      if (usersSnap.exists()) {
+        setLocal(STORAGE_KEYS.USERS, usersSnap.val());
       }
     } catch (e: any) {
-      console.log("Firebase remote sync note (local fallback active):", e?.message || e);
+      console.warn("Direct Firebase RTDB fetch note:", e?.message || e);
+    }
+  }
+
+  // Setup Realtime Database synchronization listeners
+  if (database) {
+    try {
+      // 1. Profile listener
+      onValue(ref(database, 'profile'), (snapshot) => {
+        if (snapshot.exists()) {
+          setLocal(STORAGE_KEYS.PROFILE, snapshot.val());
+        }
+      });
+
+      // 2. Branches listener
+      onValue(ref(database, 'branches'), (snapshot) => {
+        if (snapshot.exists()) {
+          const branches = toArray<PharmacyBranch>(snapshot.val());
+          if (branches.length > 0) {
+            setLocal(STORAGE_KEYS.BRANCHES, branches);
+          }
+        }
+      });
+
+      // 3. Branch Stocks listener
+      onValue(ref(database, 'branch_stocks'), (snapshot) => {
+        if (snapshot.exists()) {
+          const stocks = toArray<BranchStockItem>(snapshot.val());
+          if (stocks.length > 0) {
+            setLocal(STORAGE_KEYS.BRANCH_STOCKS, stocks);
+          }
+        }
+      });
+
+      // 4. Medicines listener
+      onValue(ref(database, 'medicines'), (snapshot) => {
+        if (snapshot.exists()) {
+          const meds = toArray<Medicine>(snapshot.val());
+          if (meds.length > 0) {
+            setLocal(STORAGE_KEYS.MEDICINES, meds);
+          }
+        }
+      });
+
+      // 5. Customers listener
+      onValue(ref(database, 'customers'), (snapshot) => {
+        if (snapshot.exists()) {
+          const custs = toArray<Customer>(snapshot.val());
+          if (custs.length > 0) {
+            setLocal(STORAGE_KEYS.CUSTOMERS, custs);
+          }
+        }
+      });
+
+      // 6. Invoices listener
+      onValue(ref(database, 'invoices'), (snapshot) => {
+        if (snapshot.exists()) {
+          const invs = toArray<Invoice>(snapshot.val());
+          if (invs.length > 0) {
+            setLocal(STORAGE_KEYS.INVOICES, invs);
+          }
+        }
+      });
+
+      // 7. Online Orders listener
+      onValue(ref(database, 'online_orders'), (snapshot) => {
+        if (snapshot.exists()) {
+          const orders = toArray<OnlineOrder>(snapshot.val());
+          if (orders.length > 0) {
+            setLocal(STORAGE_KEYS.ONLINE_ORDERS, orders);
+          }
+        }
+      });
+
+      // 8. Pending Consignments listener
+      onValue(ref(database, 'pending_consignments'), (snapshot) => {
+        if (snapshot.exists()) {
+          const consignments = toArray<PendingStockConsignment>(snapshot.val());
+          if (consignments.length > 0) {
+            setLocal(STORAGE_KEYS.PENDING_CONSIGNMENTS, consignments);
+          }
+        }
+      });
+
+      // 9. Reminders listener
+      onValue(ref(database, 'reminders'), (snapshot) => {
+        if (snapshot.exists()) {
+          const rems = toArray<MedicineReminder>(snapshot.val());
+          if (rems.length > 0) {
+            setLocal(STORAGE_KEYS.REMINDERS, rems);
+          }
+        }
+      });
+
+      // 10. Users accounts & PINs listener
+      onValue(ref(database, 'users'), (snapshot) => {
+        if (snapshot.exists()) {
+          setLocal(STORAGE_KEYS.USERS, snapshot.val());
+        }
+      });
+
+    } catch (e: any) {
+      console.warn("Realtime Database listener setup note:", e?.message || e);
     }
   }
 };
 
+// ==================== REALTIME LOGIN & AUTHENTICATION (FIREBASE RTDB) ====================
+export const loginCustomerRealtime = async (
+  mobileNumber: string, 
+  pin: string
+): Promise<{ success: boolean; session?: UserSession; message?: string }> => {
+  const clean = mobileNumber.replace(/\D/g, '');
+  if (!clean || clean.length < 10) {
+    return { success: false, message: 'Please enter a valid 10-digit mobile number' };
+  }
+  const enteredPin = pin.trim();
+  if (!enteredPin) {
+    return { success: false, message: 'Please enter your account security PIN' };
+  }
+
+  if (database) {
+    try {
+      const userRef = ref(database, `users/${clean}`);
+      const snap = await get(userRef);
+      if (snap.exists()) {
+        const user = snap.val();
+        if (!user.pin || String(user.pin).trim() !== enteredPin) {
+          return { success: false, message: 'Incorrect PIN. Access denied.' };
+        }
+
+        // Fetch customer profile
+        const custRef = ref(database, `customers/${clean}`);
+        const custSnap = await get(custRef);
+        const customer: Customer = custSnap.exists() ? custSnap.val() : {
+          id: user.id || `cust-${clean}`,
+          mobileNumber: clean,
+          name: user.name || 'Patient',
+          loyaltyPoints: user.loyaltyPoints || 50,
+          createdAt: user.createdAt || new Date().toISOString()
+        };
+
+        // Update last login in RTDB
+        await update(userRef, { lastLoginAt: new Date().toISOString() });
+
+        const session: UserSession = { role: 'customer', customer };
+        setActiveSession(session);
+        setActiveCustomerPhone(clean);
+        return { success: true, session };
+      } else {
+        return { success: false, message: 'Customer account not found. Please register first.' };
+      }
+    } catch (err: any) {
+      console.warn("RTDB login error:", err?.message);
+      return { success: false, message: 'Database connection error. Please try again.' };
+    }
+  }
+
+  return { success: false, message: 'Database service unavailable. Access denied.' };
+};
+
+export const registerCustomerRealtime = async (
+  name: string, 
+  mobileNumber: string, 
+  pin: string, 
+  address?: string
+): Promise<{ success: boolean; session?: UserSession; message?: string }> => {
+  const clean = mobileNumber.replace(/\D/g, '');
+  if (!name.trim()) {
+    return { success: false, message: 'Please enter your name' };
+  }
+  if (!clean || clean.length < 10) {
+    return { success: false, message: 'Please enter a valid 10-digit mobile number' };
+  }
+  const cleanPin = pin.trim();
+  if (!cleanPin || cleanPin.length < 4) {
+    return { success: false, message: 'Please set a secure 4-digit PIN for your account' };
+  }
+
+  const customerId = `cust-${Date.now()}`;
+  const newCustomer: Customer = {
+    id: customerId,
+    mobileNumber: clean,
+    name: name.trim(),
+    address: address || 'Warangal, Telangana',
+    loyaltyPoints: 50,
+    createdAt: new Date().toISOString()
+  };
+
+  const userAccount: UserAccount = {
+    id: customerId,
+    role: 'customer',
+    name: name.trim(),
+    mobileNumber: clean,
+    pin: cleanPin,
+    loyaltyPoints: 50,
+    createdAt: new Date().toISOString(),
+    lastLoginAt: new Date().toISOString()
+  };
+
+  await saveCustomer(newCustomer);
+
+  if (database) {
+    try {
+      await set(ref(database, `users/${clean}`), userAccount);
+      await set(ref(database, `customers/${clean}`), newCustomer);
+    } catch (e: any) {
+      console.warn("Realtime user account write note:", e?.message);
+    }
+  }
+
+  const session: UserSession = { role: 'customer', customer: newCustomer };
+  setActiveSession(session);
+  setActiveCustomerPhone(clean);
+  return { success: true, session };
+};
+
+export const loginOwnerRealtime = async (
+  pin: string
+): Promise<{ success: boolean; session?: UserSession; message?: string }> => {
+  const enteredPin = pin.trim();
+  if (!enteredPin) {
+    return { success: false, message: 'Please enter your owner security PIN' };
+  }
+
+  if (database) {
+    try {
+      const ownerRef = ref(database, 'users/owner');
+      const snap = await get(ownerRef);
+      if (!snap.exists()) {
+        return { success: false, message: 'Owner account is not configured in the Firebase database.' };
+      }
+
+      const ownerData = snap.val();
+      // Strict authentication against database record only - no hardcoded values or bypasses
+      if (!ownerData || !ownerData.pin || String(ownerData.pin).trim() !== enteredPin) {
+        return { success: false, message: 'Invalid owner security PIN. Access denied.' };
+      }
+
+      await update(ownerRef, { lastLoginAt: new Date().toISOString() });
+      const session: UserSession = { 
+        role: 'owner', 
+        ownerName: ownerData.name || 'Pharmacy Owner' 
+      };
+      setActiveSession(session);
+      return { success: true, session };
+    } catch (e: any) {
+      console.warn("RTDB owner login error:", e?.message);
+      return { success: false, message: 'Database communication error. Please check network connection.' };
+    }
+  }
+
+  return { success: false, message: 'Database service unavailable. Access denied.' };
+};
+
 // ==================== MEDICINES ====================
 export const getMedicines = (): Medicine[] => {
-  return getLocal<Medicine[]>(STORAGE_KEYS.MEDICINES, INITIAL_MEDICINES);
+  return getLocal<Medicine[]>(STORAGE_KEYS.MEDICINES, []);
 };
 
 export const saveMedicine = async (med: Medicine): Promise<void> => {
@@ -211,7 +496,7 @@ export const updateStock = async (medicineId: string, quantityDeducted: number):
 
 // ==================== INVOICES ====================
 export const getInvoices = (): Invoice[] => {
-  return getLocal<Invoice[]>(STORAGE_KEYS.INVOICES, INITIAL_INVOICES);
+  return getLocal<Invoice[]>(STORAGE_KEYS.INVOICES, []);
 };
 
 export const saveInvoice = async (invoice: Invoice): Promise<void> => {
@@ -246,7 +531,7 @@ export const getCustomerInvoices = (mobileNumber: string): Invoice[] => {
 
 // ==================== CUSTOMERS ("One Customer, One Account") ====================
 export const getCustomers = (): Customer[] => {
-  return getLocal<Customer[]>(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
+  return getLocal<Customer[]>(STORAGE_KEYS.CUSTOMERS, []);
 };
 
 export const getCustomerByMobile = (mobile: string): Customer | undefined => {
@@ -303,7 +588,7 @@ const upsertCustomerFromInvoice = async (invoice: Invoice) => {
 };
 
 // Session state for owner & customer
-const SESSION_KEY = 'medeco_user_session_v2';
+const SESSION_KEY = 'medeco_user_session_v3';
 
 export const getActiveSession = (): UserSession | null => {
   try {
@@ -328,19 +613,6 @@ export const setActiveSession = (session: UserSession | null) => {
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_CUSTOMER);
   }
   notifyListeners();
-};
-
-export const loginOwner = (passwordOrPin: string): boolean => {
-  // Support owner password 'admin123' or owner PIN '9999' or 'owner'
-  const validSecrets = ['admin123', '9999', 'owner', 'admin'];
-  if (validSecrets.includes(passwordOrPin.trim())) {
-    setActiveSession({
-      role: 'owner',
-      ownerName: 'Pharmacy Owner / Manager'
-    });
-    return true;
-  }
-  return false;
 };
 
 export const getActiveCustomerPhone = (): string | null => {
@@ -368,40 +640,138 @@ export const setActiveCustomerPhone = (phone: string | null) => {
   notifyListeners();
 };
 
-// Customer metrics for owner view
+// Customer metrics for owner view with branch & PIN access
 export interface CustomerWithMetrics extends Customer {
   totalOrders: number;
   totalSpent: number;
   lastOrderDate?: string;
   activeRemindersCount: number;
+  pin?: string;
+  primaryBranchId?: string;
+  primaryBranchName?: string;
+  primaryBranchPhone?: string;
 }
+
+export const getUserAccounts = (): Record<string, any> => {
+  return getLocal<Record<string, any>>(STORAGE_KEYS.USERS, {});
+};
+
+export const getCustomerPin = (mobileNumber: string): string | null => {
+  const clean = mobileNumber.replace(/\D/g, '');
+  const users = getUserAccounts();
+  if (users[clean] && users[clean].pin) {
+    return users[clean].pin;
+  }
+  return null;
+};
+
+export const updateCustomerPinRealtime = async (
+  mobileNumber: string, 
+  newPin: string
+): Promise<{ success: boolean; message?: string }> => {
+  const clean = mobileNumber.replace(/\D/g, '');
+  if (!clean || clean.length < 10) {
+    return { success: false, message: 'Invalid mobile number' };
+  }
+  const cleanPin = newPin.trim();
+  if (!cleanPin || cleanPin.length < 4) {
+    return { success: false, message: 'Security PIN must be at least 4 digits' };
+  }
+
+  const users = getUserAccounts();
+  const existingUser = users[clean] || {};
+  const updatedUser = {
+    ...existingUser,
+    mobileNumber: clean,
+    pin: cleanPin,
+    role: 'customer',
+    pinUpdatedAt: new Date().toISOString()
+  };
+
+  users[clean] = updatedUser;
+  setLocal(STORAGE_KEYS.USERS, users);
+
+  if (database) {
+    try {
+      const userRef = ref(database, `users/${clean}`);
+      const snap = await get(userRef);
+      if (snap.exists()) {
+        await update(userRef, { pin: cleanPin, pinUpdatedAt: new Date().toISOString() });
+      } else {
+        await set(userRef, updatedUser);
+      }
+    } catch (e: any) {
+      console.warn("RTDB update customer PIN note:", e);
+    }
+  }
+
+  notifyListeners();
+  return { success: true, message: `PIN updated successfully to ${cleanPin} for patient +91 ${clean}` };
+};
+
+export const updateCustomerBranchRealtime = async (
+  mobileNumber: string, 
+  branchId: string
+): Promise<{ success: boolean; message?: string }> => {
+  const clean = mobileNumber.replace(/\D/g, '');
+  const customers = getCustomers();
+  const idx = customers.findIndex(c => c.mobileNumber.replace(/\D/g, '') === clean);
+  if (idx >= 0) {
+    customers[idx] = { ...customers[idx], preferredBranchId: branchId };
+    setLocal(STORAGE_KEYS.CUSTOMERS, customers);
+  }
+  if (database) {
+    try {
+      await update(ref(database, `customers/${clean}`), { preferredBranchId: branchId });
+    } catch (e: any) {
+      console.warn("RTDB update customer branch note:", e?.message);
+    }
+  }
+  notifyListeners();
+  return { success: true, message: 'Customer primary store branch updated successfully' };
+};
 
 export const getAllCustomersWithMetrics = (): CustomerWithMetrics[] => {
   const customers = getCustomers();
   const invoices = getInvoices();
   const reminders = getReminders();
+  const users = getUserAccounts();
+  const orders = getOnlineOrders();
+  const branches = getPharmacyBranches();
 
   return customers.map(cust => {
     const cleanPhone = cust.mobileNumber.replace(/\D/g, '');
     const custInvoices = invoices.filter(inv => inv.customerMobile.replace(/\D/g, '') === cleanPhone);
     const custReminders = reminders.filter(r => r.customerMobile.replace(/\D/g, '') === cleanPhone);
+    const custOrders = orders.filter(o => o.customerMobile.replace(/\D/g, '') === cleanPhone);
 
     const totalSpent = custInvoices.reduce((acc, inv) => acc + inv.grandTotal, 0);
     const lastOrder = custInvoices.length > 0 ? custInvoices[0].date : undefined;
+
+    // Associated branch from preferredBranchId, order, invoice, or default
+    const primaryBranchId = cust.preferredBranchId || custOrders[0]?.pharmacyId || custInvoices[0]?.branchId || 'pharm-hanamkonda';
+    const branchObj = branches.find(b => b.id === primaryBranchId) || branches[0];
+    const primaryBranchName = branchObj ? branchObj.name : 'medEco Pharmacy - Hanamkonda Chowrasta';
+    const primaryBranchPhone = branchObj ? branchObj.phone : '+91 870 244 5566';
+    const pin = users[cleanPhone]?.pin;
 
     return {
       ...cust,
       totalOrders: custInvoices.length,
       totalSpent,
       lastOrderDate: lastOrder,
-      activeRemindersCount: custReminders.filter(r => r.isActive).length
+      activeRemindersCount: custReminders.filter(r => r.isActive).length,
+      pin,
+      primaryBranchId,
+      primaryBranchName,
+      primaryBranchPhone
     };
   });
 };
 
 // ==================== MEDICINE REMINDERS ====================
 export const getReminders = (): MedicineReminder[] => {
-  return getLocal<MedicineReminder[]>(STORAGE_KEYS.REMINDERS, INITIAL_REMINDERS);
+  return getLocal<MedicineReminder[]>(STORAGE_KEYS.REMINDERS, []);
 };
 
 export const getCustomerReminders = (mobile: string): MedicineReminder[] => {
@@ -481,13 +851,18 @@ export const getPharmacyProfile = (): PharmacyProfile => {
   return getLocal<PharmacyProfile>(STORAGE_KEYS.PROFILE, DEFAULT_PHARMACY_PROFILE);
 };
 
-export const savePharmacyProfile = (profile: PharmacyProfile) => {
+export const savePharmacyProfile = async (profile: PharmacyProfile): Promise<void> => {
   setLocal(STORAGE_KEYS.PROFILE, profile);
+  if (database) {
+    try {
+      await set(ref(database, 'profile'), profile);
+    } catch (e) {}
+  }
 };
 
 // ==================== MULTI-STORE PHARMACY BRANCHES ====================
 export const getPharmacyBranches = (): PharmacyBranch[] => {
-  return getLocal<PharmacyBranch[]>(STORAGE_KEYS.BRANCHES, INITIAL_BRANCHES);
+  return getLocal<PharmacyBranch[]>(STORAGE_KEYS.BRANCHES, []);
 };
 
 export const getBranchById = (branchId: string): PharmacyBranch | undefined => {
@@ -519,7 +894,7 @@ export const savePharmacyBranch = async (branch: PharmacyBranch): Promise<void> 
 
 export const getActiveBranchId = (): string => {
   const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_BRANCH);
-  return saved || 'pharm-koramangala';
+  return saved || 'pharm-hanamkonda';
 };
 
 export const setActiveBranchId = (branchId: string): void => {
@@ -529,7 +904,7 @@ export const setActiveBranchId = (branchId: string): void => {
 
 // ==================== BRANCH STOCK INVENTORY ====================
 export const getBranchStocks = (branchId?: string): BranchStockItem[] => {
-  const all = getLocal<BranchStockItem[]>(STORAGE_KEYS.BRANCH_STOCKS, INITIAL_BRANCH_STOCKS);
+  const all = getLocal<BranchStockItem[]>(STORAGE_KEYS.BRANCH_STOCKS, []);
   if (branchId && branchId !== 'ALL') {
     return all.filter(s => s.branchId === branchId);
   }
@@ -537,7 +912,7 @@ export const getBranchStocks = (branchId?: string): BranchStockItem[] => {
 };
 
 export const updateBranchStock = async (branchId: string, medicineId: string, newStock: number): Promise<void> => {
-  const all = getLocal<BranchStockItem[]>(STORAGE_KEYS.BRANCH_STOCKS, INITIAL_BRANCH_STOCKS);
+  const all = getLocal<BranchStockItem[]>(STORAGE_KEYS.BRANCH_STOCKS, []);
   const idx = all.findIndex(s => s.branchId === branchId && s.medicineId === medicineId);
   let updated: BranchStockItem[];
   if (idx >= 0) {
@@ -551,9 +926,57 @@ export const updateBranchStock = async (branchId: string, medicineId: string, ne
   if (database) {
     try {
       const stockRef = ref(database, `branch_stocks/${branchId}_${medicineId}`);
-      await set(stockRef, { branchId, medicineId, stock: newStock });
+      await set(stockRef, { branchId, medicineId, stock: Math.max(0, newStock), minStockAlert: 10, lastUpdated: new Date().toISOString() });
     } catch (e) {
       // ignore
+    }
+  }
+};
+
+export const restockBranchMedicine = async (branchId: string, medicineId: string, addedUnits: number): Promise<void> => {
+  const allStocks = getBranchStocks();
+  const stockItem = allStocks.find(s => s.branchId === branchId && s.medicineId === medicineId);
+  const currentStock = stockItem ? stockItem.stock : 0;
+  const newStock = currentStock + addedUnits;
+  await updateBranchStock(branchId, medicineId, newStock);
+};
+
+// ==================== PENDING STOCK CONSIGNMENTS ====================
+export const getPendingStockConsignments = (branchId?: string): PendingStockConsignment[] => {
+  const all = getLocal<PendingStockConsignment[]>(STORAGE_KEYS.PENDING_CONSIGNMENTS, []);
+  if (!branchId || branchId === 'ALL') return all;
+  return all.filter(c => c.branchId === branchId);
+};
+
+export const addPendingStockConsignment = async (consignment: PendingStockConsignment): Promise<void> => {
+  const current = getLocal<PendingStockConsignment[]>(STORAGE_KEYS.PENDING_CONSIGNMENTS, []);
+  const updated = [consignment, ...current];
+  setLocal(STORAGE_KEYS.PENDING_CONSIGNMENTS, updated);
+
+  if (database) {
+    try {
+      await set(ref(database, `pending_consignments/${consignment.id}`), consignment);
+    } catch (e) {}
+  }
+};
+
+export const checkInPendingStock = async (consignmentId: string): Promise<void> => {
+  const consignments = getLocal<PendingStockConsignment[]>(STORAGE_KEYS.PENDING_CONSIGNMENTS, []);
+  const idx = consignments.findIndex(c => c.id === consignmentId);
+  if (idx >= 0) {
+    const consignment = { ...consignments[idx], status: 'CHECKED_IN' as const };
+    consignments[idx] = consignment;
+    setLocal(STORAGE_KEYS.PENDING_CONSIGNMENTS, [...consignments]);
+
+    // Automatically add incoming items to the corresponding branch stock in RTDB
+    for (const item of consignment.items) {
+      await restockBranchMedicine(consignment.branchId, item.medicineId, item.orderedQuantity);
+    }
+
+    if (database) {
+      try {
+        await update(ref(database, `pending_consignments/${consignmentId}`), { status: 'CHECKED_IN' });
+      } catch (e) {}
     }
   }
 };
@@ -585,9 +1008,167 @@ export const getNearestBranches = (userLat: number, userLng: number): NearestBra
   return withDist.sort((a, b) => a.distanceKm - b.distanceKm);
 };
 
+// ==================== WARANGAL DELIVERY ZONES & 8 KM RADIUS ENABLING ====================
+export const WARANGAL_DELIVERY_ZONES: DeliveryZone[] = [
+  {
+    id: "zone-hanamkonda",
+    name: "Hanamkonda Central / Chowrasta",
+    area: "Hanamkonda",
+    pincode: "506001",
+    coordinates: { latitude: 18.0125, longitude: 79.5539 },
+    popularLandmarks: "Public Gardens, Kakatiya University X Road, Bus Station"
+  },
+  {
+    id: "zone-nayeemnagar",
+    name: "Nayeemnagar / Kakatiya University",
+    area: "Nayeemnagar",
+    pincode: "506009",
+    coordinates: { latitude: 18.0267, longitude: 79.5582 },
+    popularLandmarks: "100 Feet Road, Chaitanya Junction, KU Campus Gate"
+  },
+  {
+    id: "zone-subedari",
+    name: "Subedari / Collector Office",
+    area: "Subedari",
+    pincode: "506001",
+    coordinates: { latitude: 18.0052, longitude: 79.5694 },
+    popularLandmarks: "District Court, Collectorate Complex, University Road"
+  },
+  {
+    id: "zone-kazipet",
+    name: "Kazipet / Railway Junction & Colony",
+    area: "Kazipet",
+    pincode: "506003",
+    coordinates: { latitude: 17.9814, longitude: 79.5165 },
+    popularLandmarks: "Railway Junction, Diesel Colony, Overbridge"
+  },
+  {
+    id: "zone-mgm",
+    name: "MGM Hospital / Warangal Station Road",
+    area: "Warangal City",
+    pincode: "506002",
+    coordinates: { latitude: 17.9942, longitude: 79.5960 },
+    popularLandmarks: "Kakatiya Medical College, MGM Circle, Railway Station"
+  },
+  {
+    id: "zone-nakkalagutta",
+    name: "Nakkalagutta / Balasamudram",
+    area: "Hanamkonda",
+    pincode: "506001",
+    coordinates: { latitude: 18.0080, longitude: 79.5620 },
+    popularLandmarks: "Kakatiya Degree College, Balasamudram Temple, Petrol Bunk"
+  },
+  {
+    id: "zone-hunter",
+    name: "Hunter Road / Waddepally",
+    area: "Hunter Road",
+    pincode: "506001",
+    coordinates: { latitude: 17.9890, longitude: 79.5480 },
+    popularLandmarks: "Waddepally Lake, Arts College Road, Shyampet"
+  },
+  {
+    id: "zone-madikonda",
+    name: "Madikonda / Kazipet Outskirts",
+    area: "Kazipet Outskirts",
+    pincode: "506142",
+    coordinates: { latitude: 17.9420, longitude: 79.4680 },
+    popularLandmarks: "Madikonda Temple, Hyderabad Highway Toll Plaza"
+  },
+  {
+    id: "zone-fort",
+    name: "Warangal Fort / Ursu Gutta",
+    area: "South Warangal",
+    pincode: "506005",
+    coordinates: { latitude: 17.9550, longitude: 79.6250 },
+    popularLandmarks: "Warangal Fort Gates, Ursu Gutta, Rangampet"
+  },
+  {
+    id: "zone-bollikunta",
+    name: "Bollikunta / Hasanparthy Outskirts",
+    area: "North Warangal",
+    pincode: "506371",
+    coordinates: { latitude: 18.0750, longitude: 79.5450 },
+    popularLandmarks: "Vagdevi Colleges, Hasanparthy Lake, Bheemaram X Road"
+  }
+];
+
+export interface StoreRadiusEvaluation extends PharmacyBranch {
+  distanceKm: number;
+  isEligible: boolean; // true if distanceKm <= maxRadiusKm (standard 8 km)
+}
+
+export const getStoresWithRadiusEvaluation = (lat: number, lng: number, maxRadiusKm = 8.0): StoreRadiusEvaluation[] => {
+  const branches = getPharmacyBranches().filter(b => b.isActive);
+  return branches.map(b => {
+    const dist = calculateDistanceKm(lat, lng, b.coordinates.latitude, b.coordinates.longitude);
+    return {
+      ...b,
+      distanceKm: dist,
+      isEligible: dist <= maxRadiusKm
+    };
+  }).sort((a, b) => a.distanceKm - b.distanceKm);
+};
+
+export const updateCustomerLocationRealtime = async (
+  mobileNumber: string,
+  locationData: {
+    zone?: string;
+    doorNumber?: string;
+    address?: string;
+    landmark?: string;
+    pincode?: string;
+    geoCoordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+    preferredBranchId?: string;
+  }
+): Promise<Customer | null> => {
+  const clean = mobileNumber.replace(/\D/g, '');
+  const customers = getCustomers();
+  const idx = customers.findIndex(c => c.mobileNumber.replace(/\D/g, '') === clean);
+  if (idx < 0) return null;
+
+  const updated: Customer = {
+    ...customers[idx],
+    ...locationData,
+    address: locationData.address || customers[idx].address
+  };
+  customers[idx] = updated;
+  setLocal(STORAGE_KEYS.CUSTOMERS, customers);
+
+  // Update session customer if currently logged in
+  const currentSession = getActiveSession();
+  if (currentSession && currentSession.customer && currentSession.customer.mobileNumber.replace(/\D/g, '') === clean) {
+    setActiveSession({
+      ...currentSession,
+      customer: updated
+    });
+  }
+
+  if (database) {
+    try {
+      await update(ref(database, `customers/${clean}`), {
+        ...locationData,
+        updatedAt: new Date().toISOString()
+      });
+      await update(ref(database, `users/${clean}`), {
+        address: updated.address || '',
+        zone: updated.zone || '',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn("RTDB location update note:", e);
+    }
+  }
+
+  notifyListeners();
+  return updated;
+};
+
 // ==================== ONLINE ORDERS & PRESCRIPTIONS (BRANCH ROUTED) ====================
 export const getOnlineOrders = (): OnlineOrder[] => {
-  return getLocal<OnlineOrder[]>(STORAGE_KEYS.ONLINE_ORDERS, INITIAL_ONLINE_ORDERS);
+  return getLocal<OnlineOrder[]>(STORAGE_KEYS.ONLINE_ORDERS, []);
 };
 
 export const getOrdersForBranch = (branchId?: string): OnlineOrder[] => {
@@ -623,7 +1204,6 @@ export const saveOnlineOrder = async (order: OnlineOrder): Promise<void> => {
   playNotificationChime();
 
   // Dispatch custom browser event for live order popup notification
-  // detail includes order and the assigned pharmacyId so only the relevant store gets alerted
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('medeco:new-online-order', { 
       detail: { ...order, assignedPharmacyId: order.pharmacyId } 
@@ -631,7 +1211,7 @@ export const saveOnlineOrder = async (order: OnlineOrder): Promise<void> => {
   }
 };
 
-// Standard Online Pharmacy Order Status Advancement (Apollo / 1mg SOP)
+// Standard Online Pharmacy Order Status Advancement
 export const advanceOrderStatus = async (
   orderId: string, 
   nextStatus: OrderStatus, 
@@ -698,8 +1278,6 @@ export const playNotificationChime = () => {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.55);
   } catch (e) {
-    // browser audio policy might block autoplay until user gesture
+    // ignore
   }
 };
-
-

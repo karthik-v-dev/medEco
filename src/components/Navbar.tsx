@@ -57,7 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   pendingOrdersCount,
   onOpenPendingOrders,
   onOpenManual,
-  activeBranchId = 'pharm-koramangala',
+  activeBranchId = 'pharm-hanamkonda',
   onSelectBranch,
   branches = []
 }) => {
@@ -89,14 +89,28 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Order Rx</span>
           </button>
 
-          <button
-            onClick={onOpenManual}
-            className="hidden sm:inline-flex items-center gap-1 text-emerald-300 hover:text-white font-semibold transition-colors"
-            title="Open Complete User Manual"
-          >
-            <BookOpen className="w-3 h-3" />
-            <span>User Manual (PDF)</span>
-          </button>
+          {/* USER MANUAL: Separated for Patient vs Owner, Hidden before login */}
+          {isCustomer && (
+            <button
+              onClick={onOpenManual}
+              className="hidden sm:inline-flex items-center gap-1 text-emerald-300 hover:text-white font-semibold transition-colors px-2 py-0.5 rounded-md hover:bg-emerald-800/50"
+              title="Open Patient User Guide & Ordering Manual"
+            >
+              <BookOpen className="w-3 h-3" />
+              <span>Patient Guide</span>
+            </button>
+          )}
+
+          {isOwner && (
+            <button
+              onClick={onOpenManual}
+              className="hidden sm:inline-flex items-center gap-1 text-amber-300 hover:text-white font-semibold transition-colors px-2 py-0.5 rounded-md hover:bg-amber-900/50"
+              title="Open Pharmacy Operations & POS Owner Manual"
+            >
+              <BookOpen className="w-3 h-3 text-amber-400" />
+              <span>Owner Operations Manual</span>
+            </button>
+          )}
 
           {isOwner && (
             <span className="inline-flex items-center gap-1 bg-amber-400/20 text-amber-200 px-2 py-0.5 rounded font-bold border border-amber-400/30">
@@ -120,7 +134,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-3 shrink-0">
           <div 
             className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none"
-            onClick={() => setCurrentTab('finder')}
+            onClick={() => setCurrentTab(isCustomer ? 'customer_history' : 'finder')}
           >
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
               <Pill className="w-5 h-5 -rotate-45" />
@@ -245,18 +259,28 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* 3. TIER 2: SECONDARY NAVIGATION ROW SET BELOW AS INLINE-BLOCK PILLS (Never overflows screen width!) */}
       <div className="border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 px-3 sm:px-6 lg:px-8 py-1.5">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-1.5">
-          {/* Universal Finder */}
-          <button
-            onClick={() => setCurrentTab('finder')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              currentTab === 'finder'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-            }`}
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span>Where is Tablet?</span>
-          </button>
+          {/* Universal Finder - Hidden for customers to restrict internal tablet & rack details */}
+          {!isCustomer ? (
+            <button
+              onClick={() => setCurrentTab('finder')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                currentTab === 'finder'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Where is Tablet?</span>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenOnlineOrder}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Order Rx Online</span>
+            </button>
+          )}
 
           {/* Rack Map */}
           {!isCustomer && (

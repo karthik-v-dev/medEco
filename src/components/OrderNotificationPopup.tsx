@@ -94,7 +94,7 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
         <div className="bg-emerald-50 dark:bg-emerald-950/60 border-b border-emerald-200 dark:border-emerald-800 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1.5 font-bold text-emerald-900 dark:text-emerald-200">
             <Building2 className="w-4 h-4 text-emerald-600" />
-            <span>Assigned Branch: <span className="underline">{order.pharmacyName || 'Koramangala 5th Block'}</span></span>
+            <span>Assigned Branch: <span className="underline">{order.pharmacyName || 'Hanamkonda Chowrasta'}</span></span>
           </div>
 
           <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100">
