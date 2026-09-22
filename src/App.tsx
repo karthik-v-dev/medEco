@@ -71,7 +71,7 @@ export const App: React.FC = () => {
   const [session, setSession] = useState<UserSession | null>(null);
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
   const [branches, setBranches] = useState<PharmacyBranch[]>([]);
-  const [activeBranchId, setActiveBranchIdState] = useState<string>('pharm-koramangala');
+  const [activeBranchId, setActiveBranchIdState] = useState<string>('pharm-hanamkonda');
 
   // Modals State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -90,7 +90,11 @@ export const App: React.FC = () => {
     initializeDataLayer().then(() => {
       setMedicines(getMedicines());
       setInvoices(getInvoices());
-      setSession(getActiveSession());
+      const curSession = getActiveSession();
+      setSession(curSession);
+      if (curSession?.role === 'customer') {
+        setCurrentTab('customer_history');
+      }
       setOnlineOrders(getOnlineOrders());
       setBranches(getPharmacyBranches());
       setActiveBranchIdState(getActiveBranchId());
@@ -112,7 +116,7 @@ export const App: React.FC = () => {
       
       // Store Routing Check:
       // An owner will receive notifications if they have selected "ALL" or if the order was assigned to their store
-      const curBranch = localStorage.getItem('medeco_active_branch_id') || 'pharm-koramangala';
+      const curBranch = localStorage.getItem('medeco_active_branch_id') || 'pharm-hanamkonda';
       if (curBranch === 'ALL' || !order.pharmacyId || order.pharmacyId === curBranch) {
         setSelectedNotificationOrder(order);
         setIsOrderNotificationOpen(true);
@@ -137,6 +141,9 @@ export const App: React.FC = () => {
     setActiveSession(null);
     setSession(null);
     setCurrentTab('finder');
+    setIsAuthModalOpen(false);
+    setIsManualModalOpen(false);
+    setAuthModalRole('customer');
   };
 
   const handleBranchSwitch = (branchId: string) => {
@@ -266,14 +273,41 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6 pb-24 md:pb-12">
-        {/* 1. Everyone: "Where is Tablet?" Quick Locator */}
+        {/* 1. Everyone: "Where is Tablet?" Quick Locator - Restricted for Customers */}
         {currentTab === 'finder' && (
-          <MedicineFinder
-            medicines={medicines}
-            onAddToCart={handleAddToCart}
-            onNavigateToRack={handleNavigateToRack}
-            onOpenPos={() => isOwner ? setCurrentTab('pos') : handleOpenAuth('owner')}
-          />
+          isCustomer ? (
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 text-center max-w-lg mx-auto space-y-4 my-8">
+              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto">
+                <Lock className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Pharmacy Staff Access Only</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Tablet storage rack locator and physical store layouts are restricted to authorized pharmacy staff. Customers can view active orders or submit new prescriptions directly.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <button
+                  onClick={() => setIsOnlineOrderModalOpen(true)}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Order Prescriptions (Rx)</span>
+                </button>
+                <button
+                  onClick={() => setCurrentTab('customer_history')}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all"
+                >
+                  View My Orders
+                </button>
+              </div>
+            </div>
+          ) : (
+            <MedicineFinder
+              medicines={medicines}
+              onAddToCart={handleAddToCart}
+              onNavigateToRack={handleNavigateToRack}
+              onOpenPos={() => isOwner ? setCurrentTab('pos') : handleOpenAuth('owner')}
+            />
+          )
         )}
 
         {/* 2. Visual Rack Map */}
@@ -461,15 +495,17 @@ export const App: React.FC = () => {
 
       {/* Mobile Sticky Bottom Navigation Bar (Clean & Responsive) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around no-print shadow-lg">
-        <button
-          onClick={() => setCurrentTab('finder')}
-          className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
-            currentTab === 'finder' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Search className="w-4 h-4" />
-          <span className="text-[10px] mt-0.5">Find</span>
-        </button>
+        {!isCustomer && (
+          <button
+            onClick={() => setCurrentTab('finder')}
+            className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
+              currentTab === 'finder' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+            }`}
+          >
+            <Search className="w-4 h-4" />
+            <span className="text-[10px] mt-0.5">Find</span>
+          </button>
+        )}
 
         <button
           onClick={() => setIsOnlineOrderModalOpen(true)}
@@ -573,10 +609,11 @@ export const App: React.FC = () => {
         onAcceptAndBill={handleAcceptAndBillOrder}
       />
 
-      {/* Complete User Manual Modal (Printable / Save as PDF) */}
+      {/* Separated User Manual Modal (Patient User Guide vs Owner Operations Manual) */}
       <UserManualModal
-        isOpen={isManualModalOpen}
+        isOpen={isManualModalOpen && !!session}
         onClose={() => setIsManualModalOpen(false)}
+        role={session?.role}
       />
 
       {/* Unified Auth Modal (Customer Mobile Login & Owner Admin Login) */}

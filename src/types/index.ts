@@ -1,11 +1,24 @@
 export type UserRole = 'owner' | 'customer' | 'guest';
 
+export interface UserAccount {
+  id: string;
+  role: 'owner' | 'customer';
+  mobileNumber: string;
+  name: string;
+  email?: string;
+  pin?: string;
+  loyaltyPoints?: number;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
 export interface UserSession {
   role: 'owner' | 'customer';
   ownerName?: string;
   customer?: Customer;
-  activeBranchId?: string; // e.g. "pharm-koramangala" or undefined for all
+  activeBranchId?: string; // e.g. "pharm-hanamkonda" or undefined for all
 }
+
 
 export type MedicineCategory = 
   | 'Tablets' 
@@ -56,15 +69,36 @@ export interface CartItem {
   selectedDosageInstructions?: string;
 }
 
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  area: string;
+  pincode: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  popularLandmarks: string;
+}
+
 export interface Customer {
   id: string;
   mobileNumber: string;   // Primary identifier: "One customer one account based on mobile number"
   name: string;
   email?: string;
   address?: string;
+  doorNumber?: string;
+  landmark?: string;
+  zone?: string;
+  pincode?: string;
+  geoCoordinates?: {
+    latitude: number;
+    longitude: number;
+  };
   allergies?: string[];
   loyaltyPoints?: number;
   createdAt: string;
+  preferredBranchId?: string;
 }
 
 export interface InvoiceItem {
@@ -101,9 +135,31 @@ export interface Invoice {
   paymentMode: 'Cash' | 'UPI' | 'Card' | 'Credit';
   status: 'PAID' | 'REFUNDED' | 'CANCELLED';
   pharmacyGstin?: string;
+  branchId?: string;
   doctorName?: string;
   notes?: string;
 }
+
+export interface PendingStockConsignment {
+  id: string;
+  consignmentNumber: string; // e.g. "CON-WGL-901"
+  branchId: string;
+  branchName: string;
+  supplierName: string;
+  items: {
+    medicineId: string;
+    medicineName: string;
+    orderedQuantity: number;
+    unitCost: number;
+  }[];
+  totalUnits: number;
+  totalCost: number;
+  expectedDate: string; // YYYY-MM-DD
+  status: 'IN_TRANSIT' | 'DISPATCHED' | 'ARRIVED_AWAITING_CHECKIN' | 'CHECKED_IN';
+  orderedDate: string;
+  notes?: string;
+}
+
 
 export type DoseTiming = 'Morning' | 'Afternoon' | 'Evening' | 'Night';
 export type MealRelation = 'Before Food' | 'After Food' | 'With Food' | 'Empty Stomach';
@@ -136,10 +192,10 @@ export interface PharmacyProfile {
 }
 
 export interface PharmacyBranch {
-  id: string;              // e.g. "pharm-koramangala"
-  name: string;            // e.g. "medEco Pharmacy - Koramangala 5th Block"
-  code: string;            // e.g. "ECO-KOR-01"
-  area: string;            // e.g. "Koramangala"
+  id: string;              // e.g. "pharm-hanamkonda"
+  name: string;            // e.g. "medEco Pharmacy - Hanamkonda Chowrasta"
+  code: string;            // e.g. "HNMK-01"
+  area: string;            // e.g. "Hanamkonda"
   address: string;         // e.g. "80 Feet Road, 5th Block"
   doorNumber: string;      // e.g. "Shop #14, Ground Floor"
   pincode: string;         // e.g. "560034"
