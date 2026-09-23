@@ -19,6 +19,8 @@ import {
   registerCustomerRealtime, 
   loginOwnerRealtime
 } from '../services/firebase';
+import { useModalScrollLock } from '../services/modalLock';
+import { toast } from '../services/toast';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -48,6 +50,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [ownerKey, setOwnerKey] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Lock background scroll while AuthModal is open
+  useModalScrollLock(isOpen);
 
   const resetForm = () => {
     setMobile('');
@@ -126,6 +131,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await registerCustomerRealtime(name.trim(), clean, regPin.trim(), address);
       if (result.success && result.session) {
         resetForm();
+        toast.success(`Account registered for +91 ${clean}! Welcome to medEco.`, 'Registration Success');
         onLoginSuccess(result.session);
         onClose();
       } else {
@@ -153,6 +159,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await loginCustomerRealtime(clean, pinStr);
       if (result.success && result.session) {
         resetForm();
+        toast.success(`Welcome back, ${result.session.customer?.name || 'Patient'}!`, 'Patient Login');
         onLoginSuccess(result.session);
         onClose();
       } else {
@@ -179,6 +186,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await loginOwnerRealtime(ownerKey.trim());
       if (result.success && result.session) {
         resetForm();
+        toast.success('Welcome Owner! Executive Console & POS unlocked.', 'Owner Authentication');
         onLoginSuccess(result.session);
         onClose();
       } else {
@@ -192,7 +200,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Role Tab Selector Header */}
         <div className="bg-slate-900 text-white p-4 pb-0 flex flex-col">

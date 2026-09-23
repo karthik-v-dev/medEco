@@ -37,6 +37,7 @@ import {
   updateCustomerPinRealtime,
   updateCustomerBranchRealtime
 } from '../services/firebase';
+import { toast } from '../services/toast';
 
 interface CustomerDirectoryProps {
   onViewInvoice: (invoice: Invoice) => void;
@@ -92,6 +93,7 @@ export const CustomerDirectory: React.FC<CustomerDirectoryProps> = ({
   const handleCopyPin = (pin: string) => {
     navigator.clipboard.writeText(pin);
     setCopiedPin(true);
+    toast.info('PIN copied to clipboard');
     setTimeout(() => setCopiedPin(false), 2000);
   };
 
@@ -101,6 +103,7 @@ export const CustomerDirectory: React.FC<CustomerDirectoryProps> = ({
     const clean = newPinInput.replace(/\D/g, '');
     if (clean.length < 4) {
       setPinChangeMessage({ text: 'PIN must be at least 4 digits.', isError: true });
+      toast.warning('PIN must be at least 4 digits.');
       return;
     }
 
@@ -109,6 +112,7 @@ export const CustomerDirectory: React.FC<CustomerDirectoryProps> = ({
     try {
       const res = await updateCustomerPinRealtime(selectedCustomer.mobileNumber, clean);
       if (res.success) {
+        toast.success(`PIN updated for ${selectedCustomer.name} to ${clean}`);
         setPinChangeMessage({ 
           text: `Success! PIN for +91 ${selectedCustomer.mobileNumber} updated to ${clean} in Firebase RTDB. The customer can now log in immediately.`, 
           isError: false 
@@ -116,9 +120,11 @@ export const CustomerDirectory: React.FC<CustomerDirectoryProps> = ({
         setNewPinInput('');
         setIsChangingPin(false);
       } else {
+        toast.error(res.message || 'Failed to update PIN');
         setPinChangeMessage({ text: res.message || 'Failed to update PIN', isError: true });
       }
     } catch (err: any) {
+      toast.error(err?.message || 'Error updating PIN in Firebase');
       setPinChangeMessage({ text: err?.message || 'Error updating PIN in Firebase', isError: true });
     } finally {
       setPinChangeLoading(false);
@@ -130,6 +136,11 @@ export const CustomerDirectory: React.FC<CustomerDirectoryProps> = ({
     setBranchChangeLoading(true);
     try {
       await updateCustomerBranchRealtime(selectedCustomer.mobileNumber, newBranchId);
+      const branchObj = branches.find(b => b.id === newBranchId);
+      const branchName = branchObj ? branchObj.name.replace('medEco Pharmacy - ', '') : newBranchId;
+      toast.info(`Assigned ${selectedCustomer.name} to ${branchName}`);
+    } catch (err: any) {
+      toast.error('Failed to change customer branch');
     } finally {
       setBranchChangeLoading(false);
     }
