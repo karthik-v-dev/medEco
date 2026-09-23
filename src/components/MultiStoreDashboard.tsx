@@ -226,23 +226,6 @@ export const MultiStoreDashboard: React.FC<MultiStoreDashboardProps> = ({
     window.print();
   };
 
-  const handleQuickRestock = async (medicineId: string, medicineName: string) => {
-    const targetBranch = isConsolidated ? 'pharm-hanamkonda' : selectedBranchFilter;
-    await restockBranchMedicine(targetBranch, medicineId, 50);
-    setRestockSuccessMessage(`Restocked +50 units of ${medicineName} into ${currentBranch?.name || 'Store'}!`);
-    setTimeout(() => setRestockSuccessMessage(null), 3000);
-  };
-
-  const handleCheckInConsignment = async (consignmentId: string, consignmentNum: string) => {
-    await checkInPendingStock(consignmentId);
-    setRestockSuccessMessage(`Checked in Consignment #${consignmentNum}! Stock added to branch inventory.`);
-    setTimeout(() => setRestockSuccessMessage(null), 3500);
-  };
-
-  const handlePrintReport = () => {
-    window.print();
-  };
-
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
