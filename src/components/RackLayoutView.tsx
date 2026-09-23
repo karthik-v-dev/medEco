@@ -64,16 +64,16 @@ export const RackLayoutView: React.FC<RackLayoutViewProps> = ({
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
             <Layers className="w-4 h-4" />
             <span>Store Architecture & Shelving</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">
             Pharmacy Visual Rack Map
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Physical layout of medicines stored in racks, shelves, and bins.
           </p>
         </div>
@@ -94,13 +94,13 @@ export const RackLayoutView: React.FC<RackLayoutViewProps> = ({
                     ? isCold 
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
                       : 'bg-emerald-700 text-white shadow-md shadow-emerald-700/20'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
                 {isCold ? <Thermometer className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
                 <span>{rack}</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                 }`}>
                   {count}
                 </span>
@@ -116,12 +116,12 @@ export const RackLayoutView: React.FC<RackLayoutViewProps> = ({
           {/* Rack Information Banner */}
           <div className={`p-4 rounded-2xl border flex items-center justify-between ${
             currentRackInfo.isColdStorage 
-              ? 'bg-blue-50 border-blue-200 text-blue-900' 
-              : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+              ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/60 text-blue-900 dark:text-blue-200' 
+              : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-200'
           }`}>
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${
-                currentRackInfo.isColdStorage ? 'bg-blue-200 text-blue-800' : 'bg-emerald-200 text-emerald-800'
+                currentRackInfo.isColdStorage ? 'bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200' : 'bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200'
               }`}>
                 {selectedRack.slice(-1) || 'R'}
               </div>
@@ -150,25 +150,25 @@ export const RackLayoutView: React.FC<RackLayoutViewProps> = ({
                 return (
                   <div 
                     key={shelfNum}
-                    className="bg-white rounded-2xl border-2 border-slate-200 p-5 shadow-xs relative overflow-hidden"
+                    className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 p-5 shadow-xs relative overflow-hidden"
                   >
                     {/* Shelf Label header */}
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-mono font-bold text-xs">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center font-mono font-bold text-xs">
                           S{shelfNum}
                         </div>
                         <div>
-                          <h4 className="font-bold text-sm text-slate-900">
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
                             Shelf Level {shelfNum}
                           </h4>
-                          <p className="text-[11px] text-slate-500">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
                             {medsInShelf.length} medicines in this compartment
                           </p>
                         </div>
                       </div>
 
-                      <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">
+                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
                         Capacity: {medsInShelf.reduce((acc, m) => acc + m.stock, 0)} units total
                       </span>
                     </div>
@@ -178,29 +178,29 @@ export const RackLayoutView: React.FC<RackLayoutViewProps> = ({
                       {medsInShelf.map(med => (
                         <div 
                           key={med.id}
-                          className="p-3.5 rounded-xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200/80 hover:border-emerald-300 transition-all flex flex-col justify-between"
+                          className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-emerald-50/50 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all flex flex-col justify-between"
                         >
                           <div>
                             <div className="flex items-center justify-between gap-1 mb-1">
-                              <span className="text-[10px] font-mono font-bold bg-white text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded shadow-2xs">
+                              <span className="text-[10px] font-mono font-bold bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 px-2 py-0.5 rounded shadow-2xs">
                                 {med.rackLocation.boxNumber || `Bin-${shelfNum}`}
                               </span>
-                              <span className="text-xs font-black text-slate-900">
+                              <span className="text-xs font-black text-slate-900 dark:text-white">
                                 ₹{med.unitPrice.toFixed(2)}
                               </span>
                             </div>
 
-                            <h5 className="font-extrabold text-sm text-slate-900 line-clamp-1">
+                            <h5 className="font-extrabold text-sm text-slate-900 dark:text-white line-clamp-1">
                               {med.name}
                             </h5>
-                            <p className="text-[11px] text-slate-500 line-clamp-1">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
                               {med.genericName}
                             </p>
                           </div>
 
-                          <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                            <span className="text-[10px] font-semibold text-slate-600">
-                              Stock: <strong className={med.stock <= med.minStockAlert ? 'text-amber-600' : 'text-slate-800'}>{med.stock}</strong>
+                          <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
+                            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                              Stock: <strong className={med.stock <= med.minStockAlert ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-200'}>{med.stock}</strong>
                             </span>
 
                             <button

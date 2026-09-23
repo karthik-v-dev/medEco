@@ -14,6 +14,7 @@ import {
   Lock,
   User,
   LogIn,
+  LogOut,
   Camera,
   Bell,
   BookOpen,
@@ -26,6 +27,7 @@ import {
   Invoice, 
   UserSession, 
   OnlineOrder, 
+  OnlineOrderItem,
   PharmacyBranch 
 } from './types';
 import { 
@@ -60,6 +62,10 @@ import { OrderNotificationPopup } from './components/OrderNotificationPopup';
 import { UserManualModal } from './components/UserManualModal';
 import { MultiStoreDashboard } from './components/MultiStoreDashboard';
 import { CustomerPortal } from './components/CustomerPortal';
+import { ToastContainer } from './components/ToastContainer';
+import { SearchChatbot } from './components/SearchChatbot';
+import { WhatsAppGatewayModal } from './components/WhatsAppGatewayModal';
+import { toast } from './services/toast';
 
 export const App: React.FC = () => {
   const { theme, setTheme } = useTheme();
@@ -84,6 +90,11 @@ export const App: React.FC = () => {
   const [isOrderNotificationOpen, setIsOrderNotificationOpen] = useState(false);
   const [selectedNotificationOrder, setSelectedNotificationOrder] = useState<OnlineOrder | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [prefilledOrderItems, setPrefilledOrderItems] = useState<OnlineOrderItem[]>([]);
+  const [prefilledOrderNotes, setPrefilledOrderNotes] = useState<string>('');
+  const [lastPlacedOnlineOrder, setLastPlacedOnlineOrder] = useState<OnlineOrder | null>(null);
+  const [isWhatsAppGatewayOpen, setIsWhatsAppGatewayOpen] = useState(false);
 
   // Load data & subscribe to changes
   useEffect(() => {
@@ -115,12 +126,17 @@ export const App: React.FC = () => {
       const order = customEvent.detail;
       
       // Store Routing Check:
-      // An owner will receive notifications if they have selected "ALL" or if the order was assigned to their store
-      const curBranch = localStorage.getItem('medeco_active_branch_id') || 'pharm-hanamkonda';
-      if (curBranch === 'ALL' || !order.pharmacyId || order.pharmacyId === curBranch) {
-        setSelectedNotificationOrder(order);
-        setIsOrderNotificationOpen(true);
-        confetti({ particleCount: 60, spread: 55, origin: { y: 0.3 } });
+      // Realtime popup notifications are strictly for store owners/pharmacists in owner view.
+      // Customers placing an order should NEVER be interrupted with the store order management popup.
+      const curRole = getActiveSession()?.role;
+      if (curRole === 'owner') {
+        const curBranch = localStorage.getItem('medeco_active_branch_id') || 'pharm-hanamkonda';
+        if (curBranch === 'ALL' || !order.pharmacyId || order.pharmacyId === curBranch) {
+          setSelectedNotificationOrder(order);
+          setIsOrderNotificationOpen(true);
+          toast.info(`🔔 New online order #${order.orderNumber} received from ${order.customerName}!`, 'New Order Received', 6000);
+          confetti({ particleCount: 60, spread: 55, origin: { y: 0.3 } });
+        }
       }
     };
 
@@ -144,14 +160,18 @@ export const App: React.FC = () => {
     setIsAuthModalOpen(false);
     setIsManualModalOpen(false);
     setAuthModalRole('customer');
+    toast.info('You have been logged out safely.', 'Logged Out');
   };
 
   const handleBranchSwitch = (branchId: string) => {
     setActiveBranchIdState(branchId);
     setActiveBranchId(branchId);
+    const branchName = branches.find(b => b.id === branchId)?.name.replace('medEco Pharmacy - ', '') || 'All Branches';
+    toast.info(`Active store switched to: ${branchName}`, 'Store Location');
   };
 
   const handleAddToCart = (medicine: Medicine, quantity: number = 1) => {
+    toast.success(`Added ${medicine.name} to bill`, 'Item Added');
     setCart(prev => {
       const idx = prev.findIndex(item => item.medicine.id === medicine.id);
       if (idx >= 0) {
@@ -186,6 +206,7 @@ export const App: React.FC = () => {
 
   const handleInvoiceCreated = (invoice: Invoice) => {
     setActiveReceipt(invoice);
+    toast.success(`GST Invoice #${invoice.invoiceNumber} generated! ₹${invoice.grandTotal.toFixed(2)}`, 'POS Billed');
     confetti({
       particleCount: 80,
       spread: 60,
@@ -243,6 +264,9 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-colors duration-200">
+      {/* Global Interactive Toast Notification Container */}
+      <ToastContainer />
+
       {/* App Navbar with responsive wrap, branch selector, and Theme Toggle */}
       <Navbar
         currentTab={currentTab}
@@ -266,6 +290,8 @@ export const App: React.FC = () => {
           }
         }}
         onOpenManual={() => setIsManualModalOpen(true)}
+        onOpenChatbot={() => setIsChatbotOpen(true)}
+        onOpenWhatsAppGateway={() => setIsWhatsAppGatewayOpen(true)}
         activeBranchId={activeBranchId}
         onSelectBranch={handleBranchSwitch}
         branches={branches}
@@ -451,6 +477,7 @@ export const App: React.FC = () => {
           <CustomerPortal
             customer={activeCustomer}
             onOpenAuth={() => handleOpenAuth('customer')}
+            onLogout={handleLogout}
             onViewInvoice={(inv) => setActiveReceipt(inv)}
             onGoToShop={() => setCurrentTab('finder')}
             onOpenOnlineOrder={() => setIsOnlineOrderModalOpen(true)}
@@ -493,13 +520,13 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Mobile Sticky Bottom Navigation Bar (Clean & Responsive) */}
+      {/* Mobile Sticky Bottom Navigation Bar (Clean, Responsive & Always Accessible Logout) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around no-print shadow-lg">
         {!isCustomer && (
           <button
             onClick={() => setCurrentTab('finder')}
-            className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
-              currentTab === 'finder' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+            className={`flex flex-col items-center py-1 px-1.5 rounded-xl transition-all ${
+              currentTab === 'finder' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             <Search className="w-4 h-4" />
@@ -509,7 +536,7 @@ export const App: React.FC = () => {
 
         <button
           onClick={() => setIsOnlineOrderModalOpen(true)}
-          className="flex flex-col items-center py-1 px-2 rounded-xl text-emerald-600 dark:text-emerald-400 font-bold"
+          className="flex flex-col items-center py-1 px-1.5 rounded-xl text-emerald-600 dark:text-emerald-400 font-bold"
         >
           <Camera className="w-4 h-4" />
           <span className="text-[10px] mt-0.5">Order Rx</span>
@@ -519,8 +546,8 @@ export const App: React.FC = () => {
           <>
             <button
               onClick={() => setCurrentTab('stores_dash')}
-              className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
-                currentTab === 'stores_dash' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+              className={`flex flex-col items-center py-1 px-1.5 rounded-xl transition-all ${
+                currentTab === 'stores_dash' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               <Building2 className="w-4 h-4" />
@@ -529,8 +556,8 @@ export const App: React.FC = () => {
 
             <button
               onClick={() => setCurrentTab('pos')}
-              className={`flex flex-col items-center py-1 px-2 rounded-xl relative transition-all ${
-                currentTab === 'pos' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+              className={`flex flex-col items-center py-1 px-1.5 rounded-xl relative transition-all ${
+                currentTab === 'pos' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               <Store className="w-4 h-4" />
@@ -544,8 +571,8 @@ export const App: React.FC = () => {
 
             <button
               onClick={() => setCurrentTab('customers_dir')}
-              className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
-                currentTab === 'customers_dir' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+              className={`flex flex-col items-center py-1 px-1.5 rounded-xl transition-all ${
+                currentTab === 'customers_dir' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               <Users className="w-4 h-4" />
@@ -558,8 +585,8 @@ export const App: React.FC = () => {
           <>
             <button
               onClick={() => setCurrentTab('customer_history')}
-              className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
-                currentTab === 'customer_history' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+              className={`flex flex-col items-center py-1 px-1.5 rounded-xl transition-all ${
+                currentTab === 'customer_history' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               <FileText className="w-4 h-4" />
@@ -568,8 +595,8 @@ export const App: React.FC = () => {
 
             <button
               onClick={() => setCurrentTab('customer_reminders')}
-              className={`flex flex-col items-center py-1 px-2 rounded-xl transition-all ${
-                currentTab === 'customer_reminders' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500'
+              className={`flex flex-col items-center py-1 px-1.5 rounded-xl transition-all ${
+                currentTab === 'customer_reminders' ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               <Clock className="w-4 h-4" />
@@ -578,26 +605,58 @@ export const App: React.FC = () => {
           </>
         )}
 
-        {!session && (
+        {/* LOGOUT BUTTON: Always visible and easily tapped on mobile when logged in! */}
+        {session && (
           <button
-            onClick={() => handleOpenAuth('customer')}
-            className="flex flex-col items-center py-1 px-2 rounded-xl text-slate-500 hover:text-emerald-700"
+            onClick={handleLogout}
+            className="flex flex-col items-center py-1 px-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold transition-all shrink-0"
+            title="Log Out Immediately"
           >
-            <LogIn className="w-4 h-4" />
-            <span className="text-[10px] mt-0.5">Login</span>
+            <LogOut className="w-4 h-4" />
+            <span className="text-[10px] mt-0.5">Logout</span>
           </button>
+        )}
+
+        {/* LOGGED OUT STATE: Dual Mobile Login options (Customer & Owner) */}
+        {!session && (
+          <>
+            <button
+              onClick={() => handleOpenAuth('customer')}
+              className="flex flex-col items-center py-1 px-1.5 rounded-xl text-emerald-600 dark:text-emerald-400 font-bold hover:bg-emerald-50 dark:hover:bg-slate-800 transition-all"
+            >
+              <LogIn className="w-4 h-4" />
+              <span className="text-[10px] mt-0.5">Login</span>
+            </button>
+            <button
+              onClick={() => handleOpenAuth('owner')}
+              className="flex flex-col items-center py-1 px-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-bold transition-all"
+            >
+              <Lock className="w-4 h-4 text-amber-500" />
+              <span className="text-[10px] mt-0.5">Owner</span>
+            </button>
+          </>
         )}
       </nav>
 
       {/* Customer Online Order & Prescription Upload Modal (With Nearest Branch & Login gate) */}
       <OnlineOrderModal
         isOpen={isOnlineOrderModalOpen}
-        onClose={() => setIsOnlineOrderModalOpen(false)}
+        onClose={() => {
+          setIsOnlineOrderModalOpen(false);
+          setPrefilledOrderItems([]);
+          setPrefilledOrderNotes('');
+        }}
         session={session}
+        prefillItems={prefilledOrderItems}
+        initialNotes={prefilledOrderNotes}
         onRequireLogin={() => handleOpenAuth('customer')}
         onOrderSubmitted={(order) => {
           setSelectedNotificationOrder(order);
-          setIsOrderNotificationOpen(true);
+          setIsOrderNotificationOpen(false);
+          setIsOnlineOrderModalOpen(false);
+          setLastPlacedOnlineOrder(order);
+          setPrefilledOrderItems([]);
+          setPrefilledOrderNotes('');
         }}
       />
 
@@ -614,6 +673,12 @@ export const App: React.FC = () => {
         isOpen={isManualModalOpen && !!session}
         onClose={() => setIsManualModalOpen(false)}
         role={session?.role}
+      />
+
+      {/* WhatsApp Backend Gateway & Device Link Modal (Restricted to Owner only) */}
+      <WhatsAppGatewayModal
+        isOpen={isWhatsAppGatewayOpen && isOwner}
+        onClose={() => setIsWhatsAppGatewayOpen(false)}
       />
 
       {/* Unified Auth Modal (Customer Mobile Login & Owner Admin Login) */}
@@ -645,6 +710,37 @@ export const App: React.FC = () => {
           }
         }}
       />
+
+      {/* Voice, Audio & Symptom-Based AI Search Chatbot (Accessible Exclusively After Login) */}
+      {session && (
+        <SearchChatbot
+          session={session}
+          medicines={medicines}
+          branches={branches}
+          onAddToCart={handleAddToCart}
+          onNavigateToRack={handleNavigateToRack}
+          onOpenOnlineOrder={(prefillItems, notes) => {
+            if (prefillItems && prefillItems.length > 0) {
+              setPrefilledOrderItems(prefillItems);
+            }
+            if (notes) {
+              setPrefilledOrderNotes(notes);
+            }
+            setIsOnlineOrderModalOpen(true);
+          }}
+          onOrderSubmitted={(order) => {
+            setSelectedNotificationOrder(order);
+            setIsOrderNotificationOpen(false);
+            setIsOnlineOrderModalOpen(false);
+            setIsChatbotOpen(false);
+            setLastPlacedOnlineOrder(order);
+          }}
+          lastPlacedOrder={lastPlacedOnlineOrder}
+          onNavigateToTab={(tab) => setCurrentTab(tab as any)}
+          isOpenExternal={isChatbotOpen}
+          onCloseExternal={() => setIsChatbotOpen(false)}
+        />
+      )}
     </div>
   );
 };

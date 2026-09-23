@@ -269,6 +269,16 @@ export const initializeDataLayer = async () => {
         }
       });
 
+      // 10. Owner Profile listener (live sync backend owner mobile number)
+      onValue(ref(database, 'users/owner'), (snapshot) => {
+        if (snapshot.exists()) {
+          const ownerData = snapshot.val();
+          if (ownerData?.mobileNumber) {
+            localStorage.setItem('medeco_owner_mobile', String(ownerData.mobileNumber).replace(/\D/g, ''));
+          }
+        }
+      });
+
       // 10. Users accounts & PINs listener
       onValue(ref(database, 'users'), (snapshot) => {
         if (snapshot.exists()) {
@@ -428,6 +438,26 @@ export const loginOwnerRealtime = async (
   }
 
   return { success: false, message: 'Database service unavailable. Access denied.' };
+};
+
+export const getCachedOwnerMobile = (): string => {
+  return localStorage.getItem('medeco_owner_mobile') || '9030481507';
+};
+
+export const getBackendOwnerMobile = async (): Promise<string> => {
+  if (database) {
+    try {
+      const snap = await get(ref(database, 'users/owner/mobileNumber'));
+      if (snap.exists() && snap.val()) {
+        const num = String(snap.val()).replace(/\D/g, '');
+        localStorage.setItem('medeco_owner_mobile', num);
+        return num;
+      }
+    } catch (e) {
+      console.warn("RTDB getBackendOwnerMobile error:", e);
+    }
+  }
+  return getCachedOwnerMobile();
 };
 
 // ==================== MEDICINES ====================

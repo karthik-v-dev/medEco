@@ -29,6 +29,9 @@ import {
   updateCustomerLocationRealtime
 } from '../services/firebase';
 import { GoogleMapViewer } from './GoogleMapViewer';
+import { useModalScrollLock } from '../services/modalLock';
+import { toast } from '../services/toast';
+import { sendAutomatedWhatsAppOrderConfirmation, sendAutomatedWhatsAppOrderToOwner } from '../services/whatsappService';
 
 interface OnlineOrderModalProps {
   isOpen: boolean;
@@ -36,6 +39,8 @@ interface OnlineOrderModalProps {
   session: UserSession | null;
   onOrderSubmitted: (order: OnlineOrder) => void;
   onRequireLogin?: () => void;
+  prefillItems?: OnlineOrderItem[];
+  initialNotes?: string;
 }
 
 export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
@@ -43,7 +48,9 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
   onClose,
   session,
   onOrderSubmitted,
-  onRequireLogin
+  onRequireLogin,
+  prefillItems,
+  initialNotes
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const branches = getPharmacyBranches();
@@ -74,9 +81,22 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
   const [prescriptionImage, setPrescriptionImage] = useState<string | null>(null);
   const [prescriptionFileName, setPrescriptionFileName] = useState('');
   const [isAnalyzingPrescription, setIsAnalyzingPrescription] = useState(false);
-  const [orderItems, setOrderItems] = useState<OnlineOrderItem[]>([]);
-  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [orderItems, setOrderItems] = useState<OnlineOrderItem[]>(prefillItems || []);
+  const [additionalNotes, setAdditionalNotes] = useState(initialNotes || '');
   const [error, setError] = useState('');
+
+  // Lock background scroll when modal is open (Must be called unconditionally at top of component)
+  useModalScrollLock(isOpen);
+
+  // Sync prefilled items from AI Chatbot or caller when modal opens
+  useEffect(() => {
+    if (isOpen && prefillItems && prefillItems.length > 0) {
+      setOrderItems(prefillItems);
+    }
+    if (isOpen && initialNotes) {
+      setAdditionalNotes(initialNotes);
+    }
+  }, [isOpen, prefillItems, initialNotes]);
 
   // Calculate distances and auto-enable stores whenever coordinates or zone changes
   const evaluateBranchDistances = (lat: number, lng: number) => {
@@ -202,7 +222,7 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
     );
   };
 
-  // Prescription Image Upload & Auto-Fill Simulation
+  // Prescription Image Upload: Preserve exact suggested tablets and calculate only existing medicines cost
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -218,42 +238,23 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
     setIsAnalyzingPrescription(true);
     setTimeout(() => {
       setIsAnalyzingPrescription(false);
-      // Pure clinical items - NO RACKS shown to customer
-      const matchedItems: OnlineOrderItem[] = [
-        {
-          medicineId: "med-01",
-          medicineName: "Dolo 650",
-          genericName: "Paracetamol 650mg",
-          dosage: "650 mg (15 tabs)",
-          quantity: 2,
-          unitPrice: 34.50,
-          rackInfo: ""
-        },
-        {
-          medicineId: "med-03",
-          medicineName: "Pan 40",
-          genericName: "Pantoprazole Gastro-resistant 40mg",
-          dosage: "40 mg (15 tabs)",
-          quantity: 1,
-          unitPrice: 165.00,
-          rackInfo: ""
-        },
-        {
-          medicineId: "med-04",
-          medicineName: "Cetzine 10",
-          genericName: "Cetirizine 10mg",
-          dosage: "10 mg (10 tabs)",
-          quantity: 1,
-          unitPrice: 38.00,
-          rackInfo: ""
-        }
-      ];
-
-      setOrderItems(matchedItems);
-      if (!additionalNotes) {
-        setAdditionalNotes("Doctor advised 1 tab Dolo SOS after food, Pan 40 before breakfast.");
+      // CRITICAL: Preserve exact suggested tablets (e.g. from AI Chatbot or user selection)
+      // Never overwrite with hardcoded default tablets!
+      if (orderItems.length > 0) {
+        toast.success(`Prescription attached to your ${orderItems.length} suggested medicine(s)!`);
+      } else if (prefillItems && prefillItems.length > 0) {
+        setOrderItems(prefillItems);
+        toast.success(`Prescription attached to your ${prefillItems.length} suggested medicine(s)!`);
+      } else {
+        toast.info('Prescription uploaded. Our pharmacist will verify the Rx and bill exact prescribed medicines.');
       }
-    }, 1200);
+
+      if (!additionalNotes && initialNotes) {
+        setAdditionalNotes(initialNotes);
+      } else if (!additionalNotes) {
+        setAdditionalNotes('Doctor prescription uploaded for pharmacist verification.');
+      }
+    }, 800);
   };
 
   const handleManualAddMedicine = (medId: string) => {
@@ -353,6 +354,9 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
     };
 
     await saveOnlineOrder(newOrder);
+    sendAutomatedWhatsAppOrderConfirmation(newOrder, selectedBranch);
+    sendAutomatedWhatsAppOrderToOwner(newOrder, selectedBranch);
+    toast.success(`Order #${newOrder.orderNumber} placed successfully! Confirmation dispatched to WhatsApp via backend.`, 'Order Placed');
     onOrderSubmitted(newOrder);
     onClose();
   };
@@ -364,22 +368,25 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
   }).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-4 max-h-[92vh] flex flex-col">
-        {/* Modal Header */}
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-4 sm:p-5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-sm overflow-hidden animate-in fade-in duration-200"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="relative w-full max-w-[calc(100vw-16px)] sm:max-w-2xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto max-h-[92vh] sm:max-h-[88vh] flex flex-col min-w-0">
+        {/* Modal Header - Fixed at Top, Never Scrolls */}
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-3.5 sm:p-5 flex items-center justify-between shrink-0 sticky top-0 z-30 shadow-xs">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0">
               <Camera className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-extrabold text-base sm:text-lg">Order Medicines Online & Upload Rx</h3>
-              <p className="text-xs text-emerald-100">8 km Express Delivery Radius from Warangal Pharmacy Hubs</p>
+            <div className="min-w-0">
+              <h3 className="font-extrabold text-sm sm:text-lg truncate">Order Medicines Online & Upload Rx</h3>
+              <p className="text-[11px] sm:text-xs text-emerald-100 truncate">8 km Express Delivery Radius from Warangal Pharmacy Hubs</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10"
+            className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -387,13 +394,13 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
 
         {/* If Customer is NOT Logged In: Enforce Authentication Requirement */}
         {!isLoggedIn ? (
-          <div className="p-8 text-center space-y-5 overflow-y-auto">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 mx-auto">
-              <Lock className="w-8 h-8" />
+          <div className="flex-1 p-6 sm:p-8 text-center space-y-4 sm:space-y-5 overflow-y-auto overscroll-contain">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 mx-auto">
+              <Lock className="w-7 h-7 sm:w-8 sm:h-8" />
             </div>
 
-            <div className="max-w-md mx-auto space-y-2">
-              <h4 className="text-lg font-black text-slate-900 dark:text-white">
+            <div className="max-w-md mx-auto space-y-1.5 sm:space-y-2">
+              <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                 Customer Mobile Login Required
               </h4>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -401,16 +408,16 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto text-left text-xs">
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 max-w-lg mx-auto text-left text-xs">
+              <div className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
                 <span className="font-bold text-slate-900 dark:text-white block mb-1">📍 8 km Radius</span>
                 <span className="text-[11px] text-slate-500">Fast 30-min delivery strictly within 8 km of our local stores</span>
               </div>
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
                 <span className="font-bold text-slate-900 dark:text-white block mb-1">🔒 Rx Confidential</span>
                 <span className="text-[11px] text-slate-500">Your prescriptions and health records are strictly private</span>
               </div>
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
                 <span className="font-bold text-slate-900 dark:text-white block mb-1">🚚 Live SOP Tracking</span>
                 <span className="text-[11px] text-slate-500">Track 5 stages from placed to doorstep delivery</span>
               </div>
@@ -438,8 +445,8 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
             </div>
           </div>
         ) : (
-          /* Modal Scrollable Form Body (When Logged In) */
-          <form onSubmit={handleSubmitOrder} className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs">
+          /* Modal Scrollable Form Body (When Logged In) - Only Body Scrolls */
+          <form onSubmit={handleSubmitOrder} className="flex-1 p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 sm:space-y-5 text-xs w-full min-w-0 overscroll-contain">
             {error && (
               <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-xl font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -448,10 +455,10 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
             )}
 
             {/* STEP 1: DELIVERY ZONE & ADDRESS */}
-            <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-3">
+            <div className="p-3.5 sm:p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-3 min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
+                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>1. Select Delivery Zone & Location</span>
                 </div>
 
@@ -459,7 +466,7 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
                   type="button"
                   onClick={handleDetectLocation}
                   disabled={isDetectingLocation}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 rounded-lg font-bold text-[11px] hover:bg-emerald-50 transition-colors shadow-2xs"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 rounded-lg font-bold text-[11px] hover:bg-emerald-50 transition-colors shadow-2xs shrink-0"
                 >
                   <Compass className={`w-3.5 h-3.5 ${isDetectingLocation ? 'animate-spin' : ''}`} />
                   <span>{isDetectingLocation ? 'Detecting GPS...' : 'Auto-Detect via GPS'}</span>
@@ -467,17 +474,17 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
               </div>
 
               {/* Delivery Zone Options Dropdown */}
-              <div>
+              <div className="w-full min-w-0">
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Delivery Zone (Warangal & Tri-Cities Area) *
                 </label>
                 <select
                   value={selectedZoneId}
                   onChange={(e) => handleZoneSelect(e.target.value)}
-                  className="w-full p-2.5 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-xs"
+                  className="w-full min-w-0 max-w-full truncate p-2.5 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-xs"
                 >
                   {WARANGAL_DELIVERY_ZONES.map(z => (
-                    <option key={z.id} value={z.id}>
+                    <option key={z.id} value={z.id} className="truncate">
                       {z.name} (PIN: {z.pincode}) — {z.popularLandmarks}
                     </option>
                   ))}
@@ -764,7 +771,9 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
                   <span>4. Prescribed Medicines & Items</span>
                 </div>
                 <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">
-                  Est. Total: ₹{estimatedTotal.toFixed(2)}
+                  {orderItems.length > 0 
+                    ? `Est. Total: ₹${estimatedTotal.toFixed(2)}` 
+                    : 'Est. Total: ₹0.00 (Pending Rx Verification)'}
                 </span>
               </div>
 
@@ -774,23 +783,23 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
                   {orderItems.map((item, idx) => (
                     <div 
                       key={idx}
-                      className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3"
+                      className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-2 sm:gap-3 min-w-0"
                     >
-                      <div className="space-y-0.5">
-                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <span>{item.medicineName}</span>
-                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.2 rounded font-mono">
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                          <span className="truncate">{item.medicineName}</span>
+                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.2 rounded font-mono shrink-0">
                             {item.dosage}
                           </span>
                         </div>
                         {item.genericName && (
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[10px] text-slate-500 truncate">
                             Composition: <span className="font-semibold text-slate-700 dark:text-slate-300">{item.genericName}</span>
                           </p>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <div className="text-right">
                           <span className="font-mono font-bold text-xs">
                             ₹{(item.unitPrice * item.quantity).toFixed(2)}
@@ -812,13 +821,22 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-400 italic p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
-                  Upload prescription above or add medicines manually from inventory below.
-                </p>
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-1">
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    {prescriptionImage 
+                      ? "✓ Prescription photo attached for pharmacist verification." 
+                      : "Upload prescription above or add medicines manually from inventory below."}
+                  </p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    {prescriptionImage
+                      ? "No default dummy tablets added. Estimated cost strictly reflects existing added medicines."
+                      : "Only existing added medicines will be included in the estimated total."}
+                  </p>
+                </div>
               )}
 
-              {/* Quick Add Tablet Dropdown (NO RACK INFO) */}
-              <div className="flex items-center gap-2 pt-1">
+              {/* Quick Add Tablet Dropdown (NO RACK INFO) - Width Constrained for Mobile */}
+              <div className="w-full min-w-0 pt-1">
                 <select
                   onChange={(e) => {
                     if (e.target.value) {
@@ -826,11 +844,11 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
                       e.target.value = '';
                     }
                   }}
-                  className="flex-1 p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200"
+                  className="w-full min-w-0 max-w-full truncate p-2 sm:p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden shadow-2xs"
                 >
-                  <option value="">+ Add medicine manually from inventory...</option>
+                  <option value="" className="truncate">+ Add medicine manually from inventory...</option>
                   {availableMedicines.map(m => (
-                    <option key={m.id} value={m.id}>
+                    <option key={m.id} value={m.id} className="truncate text-slate-900 bg-white dark:bg-slate-900 dark:text-white">
                       {m.name} ({m.dosage}) - ₹{m.unitPrice.toFixed(2)}
                     </option>
                   ))}
@@ -852,8 +870,8 @@ export const OnlineOrderModal: React.FC<OnlineOrderModalProps> = ({
               />
             </div>
 
-            {/* MODAL ACTIONS */}
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* MODAL ACTIONS - Sticky at Bottom */}
+            <div className="pt-3 pb-1 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm z-20">
               <div className="text-left">
                 <span className="text-[10px] text-slate-400 block">Express Delivery Guarantee</span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">

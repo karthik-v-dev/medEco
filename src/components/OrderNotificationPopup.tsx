@@ -23,6 +23,8 @@ import {
 import { OnlineOrder, OrderStatus } from '../types';
 import { advanceOrderStatus } from '../services/firebase';
 import { GoogleMapViewer } from './GoogleMapViewer';
+import { useModalScrollLock } from '../services/modalLock';
+import { toast } from '../services/toast';
 
 interface OrderNotificationPopupProps {
   order: OnlineOrder | null;
@@ -40,11 +42,15 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
   const [isZoomingRx, setIsZoomingRx] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
 
+  // Restrict background scroll while order notification is active
+  useModalScrollLock(isOpen);
+
   if (!isOpen || !order) return null;
 
   const handleUpdateStatus = async (status: OrderStatus, label: string) => {
     await advanceOrderStatus(order.id, status);
     setNotificationStatus(`Status updated: ${label}`);
+    toast.success(`Order #${order.orderNumber} status updated: ${label}`, 'Order Workflow');
     setTimeout(() => {
       setNotificationStatus(null);
       if (status === 'DELIVERED' || status === 'CANCELLED') {
@@ -58,7 +64,10 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border-2 border-emerald-500 overflow-hidden my-4 max-h-[92vh] flex flex-col">
         {/* Animated Header */}
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-4 sm:p-5 flex items-center justify-between shrink-0">
@@ -334,8 +343,8 @@ export const OrderNotificationPopup: React.FC<OrderNotificationPopupProps> = ({
       {/* Prescription Full Zoom Overlay */}
       {isZoomingRx && order.prescriptionImageUrl && (
         <div 
-          onClick={() => setIsZoomingRx(false)}
-          className="fixed inset-0 z-60 bg-black/90 p-4 flex items-center justify-center cursor-zoom-out"
+          onClick={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-60 bg-black/90 p-4 flex items-center justify-center"
         >
           <div className="relative max-w-3xl max-h-[90vh]">
             <img

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { Medicine, MedicineCategory, RackLocation } from '../types';
 import { saveMedicine, deleteMedicine } from '../services/firebase';
+import { useModalScrollLock } from '../services/modalLock';
+import { toast } from '../services/toast';
 
 interface InventoryManagerProps {
   medicines: Medicine[];
@@ -31,6 +33,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+
+  // Lock background scroll when medicine add/edit modal is open
+  useModalScrollLock(isModalOpen);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -160,28 +165,30 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     };
 
     await saveMedicine(medicineToSave);
+    toast.success(editingMedicine ? `Updated details for ${formData.name}` : `Added ${formData.name} to pharmacy inventory!`, 'Inventory Master');
     setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete "${name}" from inventory?`)) {
       await deleteMedicine(id);
+      toast.info(`Deleted ${name} from inventory`, 'Inventory Master');
     }
   };
 
   return (
     <div className="space-y-6 pb-12">
       {/* Top Header */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
             <Database className="w-4 h-4" />
             <span>Store Master Data</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">
             Medicine Inventory & Rack Location Management
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Maintain exact shelf locations, unit costs, GST slabs, and stock levels.
           </p>
         </div>
@@ -196,7 +203,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
           <input
@@ -204,7 +211,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter by name, salt, batch, rack..."
-            className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-10 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -213,10 +220,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
           >
             {categories.map(c => (
-              <option key={c} value={c}>{c === 'All' ? 'All Categories' : c}</option>
+              <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                {c === 'All' ? 'All Categories' : c}
+              </option>
             ))}
           </select>
 
@@ -227,7 +236,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap ${
               showLowStockOnly 
                 ? 'bg-amber-500 text-white border-amber-600' 
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
@@ -237,10 +246,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       </div>
 
       {/* Inventory Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200">
+            <tr className="bg-slate-50/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200 dark:border-slate-800">
               <th className="py-3 px-4">Medicine & Formula</th>
               <th className="py-3 px-3">Storage Rack Location</th>
               <th className="py-3 px-3 text-right">Cost / MRP</th>
@@ -250,20 +259,20 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               <th className="py-3 px-4 text-center">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
             {filteredMedicines.map(med => {
               const isLowStock = med.stock <= med.minStockAlert;
               return (
-                <tr key={med.id} className="hover:bg-slate-50/60 transition-colors">
+                <tr key={med.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
                         <Pill className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <strong className="text-slate-900 text-xs block">{med.name}</strong>
-                        <span className="text-[10px] text-slate-500 block leading-tight">{med.genericName}</span>
-                        <span className="text-[9px] text-slate-400">{med.brand} • {med.dosage}</span>
+                        <strong className="text-slate-900 dark:text-white text-xs block">{med.name}</strong>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block leading-tight">{med.genericName}</span>
+                        <span className="text-[9px] text-slate-400 dark:text-slate-500">{med.brand} • {med.dosage}</span>
                       </div>
                     </div>
                   </td>
@@ -273,33 +282,33 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       onClick={() => onSelectRack(med.rackLocation.rackId)}
                       className="cursor-pointer group inline-block"
                     >
-                      <span className="font-bold text-slate-800 group-hover:text-emerald-700 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-emerald-600" />
+                      <span className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                         {med.rackLocation.rackId}
                       </span>
-                      <span className="text-[10px] font-mono text-slate-500 block">
+                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 block">
                         Shelf {med.rackLocation.shelfNumber} {med.rackLocation.boxNumber ? `• ${med.rackLocation.boxNumber}` : ''}
                       </span>
                     </div>
                   </td>
 
                   <td className="py-3 px-3 text-right">
-                    <span className="font-extrabold text-slate-900 text-xs block">
+                    <span className="font-extrabold text-slate-900 dark:text-white text-xs block">
                       ₹{med.unitPrice.toFixed(2)}
                     </span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
                       Cost: ₹{med.costPrice.toFixed(2)}
                     </span>
                   </td>
 
                   <td className="py-3 px-3 text-right">
-                    <span className="bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded text-[10px]">
+                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold px-1.5 py-0.5 rounded text-[10px]">
                       {med.gstRate}%
                     </span>
                   </td>
 
                   <td className="py-3 px-3 text-right">
-                    <span className={`font-black text-xs ${isLowStock ? 'text-amber-600' : 'text-slate-800'}`}>
+                    <span className={`font-black text-xs ${isLowStock ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-200'}`}>
                       {med.stock}
                     </span>
                     {isLowStock && (
@@ -307,23 +316,23 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     )}
                   </td>
 
-                  <td className="py-3 px-3 font-mono text-[10px] text-slate-600">
+                  <td className="py-3 px-3 font-mono text-[10px] text-slate-600 dark:text-slate-400">
                     <span>{med.batchNumber}</span>
-                    <span className="block text-slate-400">{med.expiryDate.slice(0, 7)}</span>
+                    <span className="block text-slate-400 dark:text-slate-500">{med.expiryDate.slice(0, 7)}</span>
                   </td>
 
                   <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-1.5">
                       <button
                         onClick={() => handleOpenEdit(med)}
-                        className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                         title="Edit Medicine"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(med.id, med.name)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
                         title="Delete Medicine"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -339,9 +348,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-          <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-6">
-            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-6">
+            <div className="bg-slate-900 dark:bg-slate-950 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <Database className="w-4 h-4 text-emerald-400" />
                 <span>{editingMedicine ? 'Edit Medicine & Storage Location' : 'Add New Medicine to Store'}</span>
@@ -358,116 +370,116 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               {/* Basic Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Medicine Name *</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Medicine Name *</label>
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g. Dolo 650"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Generic / Salt Formula</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Generic / Salt Formula</label>
                   <input
                     type="text"
                     value={formData.genericName}
                     onChange={(e) => setFormData({ ...formData, genericName: e.target.value })}
                     placeholder="e.g. Paracetamol 650mg"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Category</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value as MedicineCategory })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white"
                   >
-                    <option value="Tablets">Tablets</option>
-                    <option value="Syrups">Syrups</option>
-                    <option value="Capsules">Capsules</option>
-                    <option value="Injections">Injections</option>
-                    <option value="Ointments">Ointments</option>
-                    <option value="Drops">Drops</option>
+                    <option value="Tablets" className="bg-white dark:bg-slate-900">Tablets</option>
+                    <option value="Syrups" className="bg-white dark:bg-slate-900">Syrups</option>
+                    <option value="Capsules" className="bg-white dark:bg-slate-900">Capsules</option>
+                    <option value="Injections" className="bg-white dark:bg-slate-900">Injections</option>
+                    <option value="Ointments" className="bg-white dark:bg-slate-900">Ointments</option>
+                    <option value="Drops" className="bg-white dark:bg-slate-900">Drops</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Brand / Mfr</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Brand / Mfr</label>
                   <input
                     type="text"
                     value={formData.brand}
                     onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                     placeholder="e.g. Micro Labs"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Dosage / Unit</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Dosage / Unit</label>
                   <input
                     type="text"
                     value={formData.dosage}
                     onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
                     placeholder="e.g. 650 mg"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
               {/* RACK & STORAGE LOCATION (CRITICAL CORE REQUIREMENT) */}
-              <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-3">
-                <span className="font-extrabold text-emerald-950 block text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl space-y-3">
+                <span className="font-extrabold text-emerald-950 dark:text-emerald-200 block text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   Exact Storage Location in Pharmacy
                 </span>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Rack ID *</label>
+                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Rack ID *</label>
                     <input
                       type="text"
                       required
                       value={formData.rackId}
                       onChange={(e) => setFormData({ ...formData, rackId: e.target.value })}
                       placeholder="e.g. Rack A / Cold Storage"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Shelf Number *</label>
+                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Shelf Number *</label>
                     <input
                       type="number"
                       min="1"
                       required
                       value={formData.shelfNumber}
                       onChange={(e) => setFormData({ ...formData, shelfNumber: Number(e.target.value) })}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Box / Bin ID</label>
+                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Box / Bin ID</label>
                     <input
                       type="text"
                       value={formData.boxNumber}
                       onChange={(e) => setFormData({ ...formData, boxNumber: e.target.value })}
                       placeholder="e.g. Box-04"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Temperature / Storage Instruction</label>
+                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Temperature / Storage Instruction</label>
                   <input
                     type="text"
                     value={formData.temperatureNote}
                     onChange={(e) => setFormData({ ...formData, temperatureNote: e.target.value })}
                     placeholder="e.g. 2°C - 8°C Refrigerated / Store below 25°C"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-medium"
+                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-medium text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -475,46 +487,46 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               {/* Pricing, GST & Stock */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Unit MRP (₹) *</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Unit MRP (₹) *</label>
                   <input
                     type="number"
                     step="0.01"
                     required
                     value={formData.unitPrice}
                     onChange={(e) => setFormData({ ...formData, unitPrice: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Cost Price (₹)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Cost Price (₹)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.costPrice}
                     onChange={(e) => setFormData({ ...formData, costPrice: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">GST Rate (%)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">GST Rate (%)</label>
                   <select
                     value={formData.gstRate}
                     onChange={(e) => setFormData({ ...formData, gstRate: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
                   >
-                    <option value={5}>5%</option>
-                    <option value={12}>12%</option>
-                    <option value={18}>18%</option>
+                    <option value={5} className="bg-white dark:bg-slate-900">5%</option>
+                    <option value={12} className="bg-white dark:bg-slate-900">12%</option>
+                    <option value={18} className="bg-white dark:bg-slate-900">18%</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Current Stock</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Current Stock</label>
                   <input
                     type="number"
                     required
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -522,21 +534,21 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               {/* Batch & Expiry */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Batch Number</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Batch Number</label>
                   <input
                     type="text"
                     value={formData.batchNumber}
                     onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Expiry Date</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
                   <input
                     type="date"
                     value={formData.expiryDate}
                     onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -545,13 +557,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl font-semibold"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl font-semibold transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 transition-all"
                 >
                   <Save className="w-4 h-4" />
                   <span>Save Medicine & Location</span>

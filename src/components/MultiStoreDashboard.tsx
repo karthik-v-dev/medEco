@@ -55,6 +55,8 @@ import {
   restockBranchMedicine
 } from '../services/firebase';
 import { GoogleMapViewer } from './GoogleMapViewer';
+import { useModalScrollLock } from '../services/modalLock';
+import { toast } from '../services/toast';
 
 interface MultiStoreDashboardProps {
   medicines: Medicine[];
@@ -189,26 +191,33 @@ export const MultiStoreDashboard: React.FC<MultiStoreDashboardProps> = ({
     ? Math.round((completedOrdersCount / branchOrders.length) * 100)
     : 100;
 
+  // Lock background scroll when stock adjustment modal is open
+  useModalScrollLock(!!editingStockItem);
+
   // Handlers
   const handleStockUpdate = async () => {
     if (!editingStockItem) return;
     await updateBranchStock(editingStockItem.branchId, editingStockItem.medicineId, newStockInput);
+    toast.success('Updated stock units in Firebase RTDB', 'Stock Updated');
     setEditingStockItem(null);
   };
 
   const handleQuickAdvance = async (orderId: string, nextStatus: OrderStatus, label: string) => {
     await advanceOrderStatus(orderId, nextStatus, `Updated via Multi-Store Dashboard: ${label}`);
+    toast.success(`Order status updated: ${label}`, 'Order Status');
   };
 
   const handleQuickRestock = async (medicineId: string, medicineName: string) => {
     const targetBranch = isConsolidated ? 'pharm-hanamkonda' : selectedBranchFilter;
     await restockBranchMedicine(targetBranch, medicineId, 50);
+    toast.success(`Restocked +50 units of ${medicineName}!`, 'Branch Restock');
     setRestockSuccessMessage(`Restocked +50 units of ${medicineName} into ${currentBranch?.name || 'Store'}!`);
     setTimeout(() => setRestockSuccessMessage(null), 3000);
   };
 
   const handleCheckInConsignment = async (consignmentId: string, consignmentNum: string) => {
     await checkInPendingStock(consignmentId);
+    toast.success(`Checked in Consignment #${consignmentNum}! Stock added to branch inventory.`, 'Consignment Inward');
     setRestockSuccessMessage(`Checked in Consignment #${consignmentNum}! Stock added to branch inventory.`);
     setTimeout(() => setRestockSuccessMessage(null), 3500);
   };
@@ -1063,7 +1072,10 @@ export const MultiStoreDashboard: React.FC<MultiStoreDashboardProps> = ({
 
           {/* Quick Adjust Stock Modal */}
           {editingStockItem && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">

@@ -21,6 +21,7 @@ import {
   KeyRound,
   Compass
 } from 'lucide-react';
+import { useModalScrollLock } from '../services/modalLock';
 
 interface UserManualModalProps {
   isOpen: boolean;
@@ -35,6 +36,9 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'patient' | 'owner'>(role === 'owner' ? 'owner' : 'patient');
 
+  // Lock background scroll when user manual modal is open
+  useModalScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   const handlePrintManual = () => {
@@ -44,10 +48,13 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
   const isCustomerView = activeTab === 'patient';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-4 max-h-[92vh] flex flex-col">
-        {/* Modal Top Action Bar */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between no-print shrink-0 border-b border-slate-800">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/75 backdrop-blur-sm overflow-hidden animate-in fade-in duration-200"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto max-h-[92vh] flex flex-col">
+        {/* Modal Top Action Bar - Fixed at Top, Never Scrolls */}
+        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between no-print shrink-0 sticky top-0 z-20 border-b border-slate-800 shadow-xs">
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white ${
               isCustomerView ? 'bg-emerald-600' : 'bg-amber-600'
@@ -505,9 +512,17 @@ export const UserManualModal: React.FC<UserManualModalProps> = ({
           )}
 
           {/* Footer */}
-          <div className="pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 space-y-1">
-            <p className="font-semibold text-slate-600 dark:text-slate-400">medEco Healthcare Systems • Warangal, Telangana, India</p>
-            <p>Direct Store Helpline: +91 870 244 5566 • care@medeco-pharmacy.com</p>
+          <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+            <div className="text-center sm:text-left space-y-0.5">
+              <p className="font-semibold text-slate-600 dark:text-slate-400">medEco Healthcare Systems • Warangal, Telangana, India</p>
+              <p>Direct Store Helpline: +91 870 244 5566 • care@medeco-pharmacy.com</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0"
+            >
+              Close Manual
+            </button>
           </div>
         </div>
       </div>

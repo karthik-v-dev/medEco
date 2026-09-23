@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { MedicineReminder, DoseTiming, MealRelation } from '../types';
 import { saveReminder, deleteReminder, toggleDoseTaken } from '../services/firebase';
+import { toast } from '../services/toast';
+import { sendAutomatedWhatsAppMessage } from '../services/whatsappService';
 
 interface ReminderManagerProps {
   customerMobile: string;
@@ -67,6 +69,7 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
     };
 
     await saveReminder(newRem);
+    toast.success(`Dose reminder scheduled for ${newMedicineName.trim()}!`, 'Dose Alert');
     setIsAdding(false);
     setNewMedicineName('');
     setNotes('');
@@ -75,10 +78,11 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
   const handleDelete = async (id: string) => {
     if (confirm("Remove this medicine reminder?")) {
       await deleteReminder(id);
+      toast.info('Medicine reminder removed.', 'Dose Alert');
     }
   };
 
-  const handleShareWhatsAppReminder = (rem: MedicineReminder) => {
+  const handleShareWhatsAppReminder = async (rem: MedicineReminder) => {
     const text = `*medEco Daily Medicine Reminder*\n` +
       `Medicine: ${rem.medicineName}\n` +
       `Dose: ${rem.dosage} (${rem.mealRelation})\n` +
@@ -86,8 +90,9 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
       (rem.notes ? `Instructions: ${rem.notes}\n` : '') +
       `Please remember to take your dose on time!`;
 
-    const url = `https://wa.me/91${customerMobile.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    const cleanPhone = customerMobile.replace(/\D/g, '');
+    await sendAutomatedWhatsAppMessage(cleanPhone, text);
+    toast.success(`📱 WhatsApp reminder dispatched to +91 ${cleanPhone} via backend server!`, 'Reminder Sent');
   };
 
   // Calculate today's adherence stats
@@ -136,7 +141,7 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
 
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="px-3.5 py-2 bg-white text-emerald-800 hover:bg-emerald-50 rounded-xl font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-2 bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-700 rounded-xl font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>Add Reminder</span>
@@ -146,16 +151,16 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
 
       {/* Add Reminder Form */}
       {isAdding && (
-        <form onSubmit={handleCreateReminder} className="bg-white p-5 rounded-2xl border-2 border-emerald-500 shadow-lg space-y-4 animate-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <h4 className="font-bold text-sm text-slate-800 flex items-center gap-2">
-              <Pill className="w-4 h-4 text-emerald-600" />
+        <form onSubmit={handleCreateReminder} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border-2 border-emerald-500 shadow-lg space-y-4 animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+            <h4 className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2">
+              <Pill className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Schedule New Medicine Reminder</span>
             </h4>
             <button
               type="button"
               onClick={() => setIsAdding(false)}
-              className="text-xs text-slate-400 hover:text-slate-600 font-semibold"
+              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-semibold"
             >
               Cancel
             </button>
@@ -163,32 +168,32 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Medicine Name *</label>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Medicine Name *</label>
               <input
                 type="text"
                 value={newMedicineName}
                 onChange={(e) => setNewMedicineName(e.target.value)}
                 placeholder="e.g. Telma 40 / Metformin"
                 required
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Dosage</label>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Dosage</label>
               <input
                 type="text"
                 value={newDosage}
                 onChange={(e) => setNewDosage(e.target.value)}
                 placeholder="e.g. 1 Tablet, 5 ml, 1 Capsule"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
 
           {/* Timings */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">Scheduled Doses</label>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">Scheduled Doses</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {(['Morning', 'Afternoon', 'Evening', 'Night'] as DoseTiming[]).map(t => {
                 const isChecked = selectedTimings.includes(t);
@@ -205,8 +210,8 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
                     }}
                     className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all ${
                       isChecked
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                     }`}
                   >
                     {timingIcons[t]}
@@ -219,11 +224,11 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Meal Relation</label>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Meal Relation</label>
               <select
                 value={newMealRelation}
                 onChange={(e) => setNewMealRelation(e.target.value as MealRelation)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="After Food">After Food (Post Meal)</option>
                 <option value="Before Food">Before Food (Pre Meal)</option>
@@ -233,25 +238,25 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Time Label</label>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Time Label</label>
               <input
                 type="text"
                 value={customTime}
                 onChange={(e) => setCustomTime(e.target.value)}
                 placeholder="e.g. 08:30 AM & 08:30 PM"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">Doctor's Notes (Optional)</label>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Doctor's Notes (Optional)</label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Take with warm water. Complete 5 day course."
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white"
             />
           </div>
 
@@ -268,10 +273,10 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
       {/* Reminders List */}
       <div className="space-y-3">
         {reminders.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center">
-            <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs font-bold text-slate-700">No active medicine reminders</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center">
+            <Clock className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No active medicine reminders</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Click "+ Add Reminder" or purchase medicines in POS to auto-schedule dosage alerts.
             </p>
           </div>
@@ -279,27 +284,27 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
           reminders.map(rem => (
             <div
               key={rem.id}
-              className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-emerald-300 transition-all"
+              className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all"
             >
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                  <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
                     <Pill className="w-4 h-4" />
                   </div>
-                  <h4 className="font-extrabold text-sm text-slate-900">{rem.medicineName}</h4>
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{rem.medicineName}</h4>
+                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md">
                     {rem.dosage}
                   </span>
-                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                     {rem.mealRelation}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
                   <span>{rem.customTime || rem.timings.join(', ')}</span>
                   {rem.notes && (
-                    <span className="text-[11px] text-slate-600 italic">
+                    <span className="text-[11px] text-slate-600 dark:text-slate-400 italic">
                       • "{rem.notes}"
                     </span>
                   )}
@@ -318,7 +323,7 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                           isTaken
                             ? 'bg-emerald-600 text-white shadow-2xs'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                            : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                         }`}
                         title={isTaken ? 'Click to mark as not taken' : 'Click to mark as taken'}
                       >
@@ -329,18 +334,18 @@ export const ReminderManager: React.FC<ReminderManagerProps> = ({
                   })}
                 </div>
 
-                <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2">
                   <button
                     onClick={() => handleShareWhatsAppReminder(rem)}
                     title="Send WhatsApp Reminder"
-                    className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all"
+                    className="p-2 text-slate-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-slate-800 rounded-xl transition-all"
                   >
                     <Share2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(rem.id)}
                     title="Delete Reminder"
-                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                    className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-all"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

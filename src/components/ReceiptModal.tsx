@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { Invoice } from '../types';
 import { getPharmacyProfile } from '../services/firebase';
+import { useModalScrollLock } from '../services/modalLock';
+import { sendAutomatedWhatsAppMessage } from '../services/whatsappService';
+import { toast } from '../services/toast';
 
 interface ReceiptModalProps {
   invoice: Invoice | null;
@@ -28,6 +31,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   onClose,
   onViewReminders
 }) => {
+  // Prevent background scrolling while receipt modal is open
+  useModalScrollLock(isOpen);
+
   if (!isOpen || !invoice) return null;
 
   const profile = getPharmacyProfile();
@@ -36,7 +42,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     window.print();
   };
 
-  const handleWhatsAppShare = () => {
+  const handleWhatsAppShare = async () => {
     const text = `*medEco Pharmacy & Healthcare - Tax Invoice*\n` +
       `Invoice #: ${invoice.invoiceNumber}\n` +
       `Date: ${new Date(invoice.date).toLocaleDateString()}\n` +
@@ -50,15 +56,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       `Thank you for trusting medEco Healthcare! Stay healthy.`;
 
     const cleanPhone = invoice.customerMobile.replace(/\D/g, '');
-    const url = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    await sendAutomatedWhatsAppMessage(cleanPhone, text);
+    toast.success(`📱 Invoice dispatched to +91 ${cleanPhone} via backend server!`, 'Bill Sent');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-4">
-        {/* Top Control Bar (Hidden during print) */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between no-print">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-hidden animate-in fade-in duration-200"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto max-h-[92vh] flex flex-col">
+        {/* Top Control Bar - Fixed at Top, Never Scrolls */}
+        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between no-print shrink-0 sticky top-0 z-20 shadow-xs">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
             <h3 className="text-sm font-bold tracking-wide">Official GST Tax Invoice</h3>
@@ -88,25 +97,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
         </div>
 
-        {/* RECEIPT PAPER CONTAINER (Styled for on-screen & physical print) */}
-        <div className="p-6 sm:p-8 receipt-container bg-white text-slate-900 text-xs">
+        {/* RECEIPT PAPER CONTAINER (Styled for on-screen & physical print) - Scrollable Body */}
+        <div className="p-6 sm:p-8 receipt-container bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs flex-1 overflow-y-auto overscroll-contain">
           {/* Pharmacy Header */}
-          <div className="border-b-2 border-dashed border-slate-300 pb-4 text-center space-y-1">
+          <div className="border-b-2 border-dashed border-slate-300 dark:border-slate-700 pb-4 text-center space-y-1">
             <div className="flex items-center justify-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
                 <Pill className="w-4 h-4" />
               </div>
-              <h2 className="text-lg font-black tracking-tight text-slate-900">
+              <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
                 {profile.name}
               </h2>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
               {profile.tagline}
             </p>
-            <p className="text-[10px] text-slate-500 max-w-md mx-auto">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 max-w-md mx-auto">
               {profile.address}
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] text-slate-600 pt-1 font-mono">
+            <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] text-slate-600 dark:text-slate-400 pt-1 font-mono">
               <span><strong>GSTIN:</strong> {profile.gstin}</span>
               <span><strong>DL No:</strong> {profile.drugLicenseNo}</span>
               <span><strong>Ph:</strong> {profile.phone}</span>
@@ -114,38 +123,38 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
 
           {/* Invoice & Customer Meta */}
-          <div className="grid grid-cols-2 gap-4 py-3 border-b border-slate-200 text-[11px]">
+          <div className="grid grid-cols-2 gap-4 py-3 border-b border-slate-200 dark:border-slate-800 text-[11px]">
             <div className="space-y-0.5">
               <p>
-                <span className="text-slate-500">Invoice No:</span>{' '}
-                <strong className="font-mono text-slate-900 text-xs">{invoice.invoiceNumber}</strong>
+                <span className="text-slate-500 dark:text-slate-400">Invoice No:</span>{' '}
+                <strong className="font-mono text-slate-900 dark:text-white text-xs">{invoice.invoiceNumber}</strong>
               </p>
               <p>
-                <span className="text-slate-500">Date & Time:</span>{' '}
-                <span className="font-semibold text-slate-800">
+                <span className="text-slate-500 dark:text-slate-400">Date & Time:</span>{' '}
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
                   {new Date(invoice.date).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                 </span>
               </p>
               {invoice.doctorName && (
                 <p>
-                  <span className="text-slate-500">Prescribed By:</span>{' '}
-                  <span className="font-semibold text-slate-800">{invoice.doctorName}</span>
+                  <span className="text-slate-500 dark:text-slate-400">Prescribed By:</span>{' '}
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{invoice.doctorName}</span>
                 </p>
               )}
             </div>
 
             <div className="space-y-0.5 text-right">
               <p>
-                <span className="text-slate-500">Customer:</span>{' '}
-                <strong className="text-slate-900">{invoice.customerName}</strong>
+                <span className="text-slate-500 dark:text-slate-400">Customer:</span>{' '}
+                <strong className="text-slate-900 dark:text-white">{invoice.customerName}</strong>
               </p>
               <p>
-                <span className="text-slate-500">Mobile:</span>{' '}
-                <span className="font-mono font-bold text-slate-800">+91 {invoice.customerMobile}</span>
+                <span className="text-slate-500 dark:text-slate-400">Mobile:</span>{' '}
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">+91 {invoice.customerMobile}</span>
               </p>
               <p>
-                <span className="text-slate-500">Payment:</span>{' '}
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                <span className="text-slate-500 dark:text-slate-400">Payment:</span>{' '}
+                <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
                   {invoice.paymentMode} - {invoice.status}
                 </span>
               </p>
@@ -156,7 +165,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <div className="mt-3">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b-2 border-slate-300 text-[10px] text-slate-500 uppercase tracking-wider">
+                <tr className="border-b-2 border-slate-300 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="py-2">Item / Formula</th>
                   <th className="py-2">Rack Location</th>
                   <th className="py-2">Batch / Exp</th>
@@ -166,37 +175,37 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   <th className="py-2 text-right">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-[11px]">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
                 {invoice.items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50">
+                  <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
                     <td className="py-2.5 pr-2">
-                      <strong className="text-slate-900 block">{item.medicineName}</strong>
-                      <span className="text-[10px] text-slate-500 block leading-tight">{item.genericName}</span>
+                      <strong className="text-slate-900 dark:text-white block">{item.medicineName}</strong>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block leading-tight">{item.genericName}</span>
                       {item.dosageInstruction && (
-                        <span className="text-[9px] text-emerald-700 font-semibold block mt-0.5">
+                        <span className="text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold block mt-0.5">
                           ↳ {item.dosageInstruction}
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 pr-2 font-mono text-[10px] text-slate-600">
-                      <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                    <td className="py-2.5 pr-2 font-mono text-[10px] text-slate-600 dark:text-slate-400">
+                      <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                         {item.rackInfo}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-2 font-mono text-[10px] text-slate-600">
+                    <td className="py-2.5 pr-2 font-mono text-[10px] text-slate-600 dark:text-slate-400">
                       {item.batchNumber}<br />
-                      <span className="text-[9px] text-slate-400">{item.expiryDate.slice(0, 7)}</span>
+                      <span className="text-[9px] text-slate-400 dark:text-slate-500">{item.expiryDate.slice(0, 7)}</span>
                     </td>
-                    <td className="py-2.5 text-right font-bold text-slate-900">
+                    <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
                       {item.quantity}
                     </td>
-                    <td className="py-2.5 text-right text-slate-700">
+                    <td className="py-2.5 text-right text-slate-700 dark:text-slate-300">
                       ₹{item.unitPrice.toFixed(2)}
                     </td>
-                    <td className="py-2.5 text-right text-slate-500 text-[10px]">
+                    <td className="py-2.5 text-right text-slate-500 dark:text-slate-400 text-[10px]">
                       {item.gstRate}%
                     </td>
-                    <td className="py-2.5 text-right font-bold text-slate-900">
+                    <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white">
                       ₹{item.total.toFixed(2)}
                     </td>
                   </tr>
@@ -206,49 +215,49 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
 
           {/* Financial Calculation Summary */}
-          <div className="mt-4 pt-3 border-t-2 border-slate-300 grid grid-cols-2 gap-4">
-            <div className="space-y-1 text-[10px] text-slate-500">
-              <p className="font-semibold text-slate-700 uppercase">GST Tax Summary:</p>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
+          <div className="mt-4 pt-3 border-t-2 border-slate-300 dark:border-slate-700 grid grid-cols-2 gap-4">
+            <div className="space-y-1 text-[10px] text-slate-500 dark:text-slate-400">
+              <p className="font-semibold text-slate-700 dark:text-slate-300 uppercase">GST Tax Summary:</p>
+              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
                 <span>Taxable Value:</span>
-                <span className="font-mono font-semibold text-slate-800">₹{invoice.taxableAmount.toFixed(2)}</span>
+                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">₹{invoice.taxableAmount.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
+              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
                 <span>CGST (Central Tax):</span>
-                <span className="font-mono font-semibold text-slate-800">₹{invoice.cgstAmount.toFixed(2)}</span>
+                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">₹{invoice.cgstAmount.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1">
+              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
                 <span>SGST (State Tax):</span>
-                <span className="font-mono font-semibold text-slate-800">₹{invoice.sgstAmount.toFixed(2)}</span>
+                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">₹{invoice.sgstAmount.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between font-bold text-slate-700">
+              <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
                 <span>Total GST Collected:</span>
                 <span className="font-mono">₹{invoice.totalGst.toFixed(2)}</span>
               </div>
             </div>
 
             <div className="space-y-1.5 text-right">
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
                 <span>Gross MRP Subtotal:</span>
                 <span className="font-semibold">₹{invoice.subtotal.toFixed(2)}</span>
               </div>
 
               {invoice.discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-700 font-bold">
+                <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-bold">
                   <span>Discount Applied ({invoice.discountType === 'percentage' ? `${invoice.discountValue}%` : 'Flat'}):</span>
                   <span>- ₹{invoice.discountAmount.toFixed(2)}</span>
                 </div>
               )}
 
-              <div className="flex justify-between items-baseline pt-2 border-t-2 border-slate-900 text-slate-900">
+              <div className="flex justify-between items-baseline pt-2 border-t-2 border-slate-900 dark:border-slate-700 text-slate-900 dark:text-white">
                 <span className="font-extrabold text-sm uppercase">Net Amount Payable:</span>
-                <span className="text-xl font-black text-emerald-800">
+                <span className="text-xl font-black text-emerald-800 dark:text-emerald-400">
                   ₹{invoice.grandTotal.toFixed(2)}
                 </span>
               </div>
 
               {invoice.discountAmount > 0 && (
-                <p className="text-[10px] font-bold text-emerald-600 text-right">
+                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 text-right">
                   🎉 Total Savings: ₹{invoice.discountAmount.toFixed(2)}
                 </p>
               )}
@@ -256,8 +265,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
 
           {/* Footer note */}
-          <div className="mt-6 pt-4 border-t border-dashed border-slate-300 text-center text-[10px] text-slate-400 space-y-1">
-            <p className="font-medium text-slate-600">
+          <div className="mt-6 pt-4 border-t border-dashed border-slate-300 dark:border-slate-700 text-center text-[10px] text-slate-400 space-y-1">
+            <p className="font-medium text-slate-600 dark:text-slate-400">
               * Medicines once sold will be taken back within 7 days with valid original receipt and unopened packaging.
             </p>
             <p>Thank you for choosing medEco Pharmacy! For dose reminders, login with your mobile number.</p>
@@ -265,16 +274,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Bottom Modal Actions (No Print) */}
-        <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
+        <div className="bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
           {onViewReminders ? (
             <button
               onClick={() => {
                 onClose();
                 onViewReminders();
               }}
-              className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100/60 hover:bg-emerald-100 px-3.5 py-2 rounded-xl transition-colors w-full sm:w-auto justify-center"
+              className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 bg-emerald-100/60 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 px-3.5 py-2 rounded-xl transition-colors w-full sm:w-auto justify-center"
             >
-              <Clock className="w-4 h-4 text-emerald-600" />
+              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>View Customer Medicine Reminders</span>
             </button>
           ) : (
@@ -284,7 +293,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onClose}
-              className="flex-1 sm:flex-none px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+              className="flex-1 sm:flex-none px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors"
             >
               Close
             </button>
